@@ -1,9 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Trash2, Power, Package } from 'lucide-react'
+import { Power, Trash2 } from 'lucide-react'
 
-type FilterType = 'all' | 'enabled' | 'installed'
+type TabType = 'mods' | 'packs'
 
 interface Mod {
   id: string
@@ -49,6 +47,16 @@ const mockMods: Mod[] = [
   },
   {
     id: '4',
+    name: 'Benchwarp',
+    description: 'Fast travel between benches',
+    version: '2.1.3',
+    author: 'homothetyhk',
+    enabled: false,
+    installed: true,
+    type: 'mod',
+  },
+  {
+    id: '5',
     name: 'Speedrun Pack',
     description: 'Essential mods for speedrunning',
     version: '1.0.0',
@@ -57,13 +65,23 @@ const mockMods: Mod[] = [
     installed: true,
     type: 'modpack',
   },
+  {
+    id: '6',
+    name: 'Rando Complete',
+    description: 'Full randomizer experience with QoL',
+    version: '2.0.1',
+    author: 'Community',
+    enabled: true,
+    installed: true,
+    type: 'modpack',
+  },
 ]
 
-export function ModList({ searchQuery, filter }: { searchQuery: string; filter: FilterType }) {
+export function ModList({ searchQuery, type }: { searchQuery: string; type: TabType }) {
   const filteredMods = mockMods
     .filter((mod) => {
-      if (filter === 'enabled') return mod.enabled
-      if (filter === 'installed') return mod.installed
+      if (type === 'mods') return mod.type === 'mod'
+      if (type === 'packs') return mod.type === 'modpack'
       return true
     })
     .filter(
@@ -74,42 +92,38 @@ export function ModList({ searchQuery, filter }: { searchQuery: string; filter: 
     )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {filteredMods.map((mod) => (
-        <Card
+        <div
           key={mod.id}
-          className="bg-card/40 border-border/40 hover:border-border transition-all"
+          className="group flex items-center gap-3 p-3 rounded-lg border border-border/40 bg-card/20 hover:bg-card/40 transition-colors"
         >
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  {mod.type === 'modpack' && (
-                    <Package className="h-4 w-4 text-purple-400 flex-shrink-0" />
-                  )}
-                  <CardTitle className="text-base truncate">{mod.name}</CardTitle>
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                    {mod.version}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground line-clamp-1">{mod.description}</p>
-                <p className="text-xs text-muted-foreground mt-1">{mod.author}</p>
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`h-7 w-7 p-0 ${mod.enabled ? 'text-purple-400' : 'text-muted-foreground'}`}
-                >
-                  <Power className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+          <button
+            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+              mod.enabled
+                ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+                : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+            }`}
+          >
+            <Power className="h-4 w-4" />
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2">
+              <h3 className="font-medium truncate">{mod.name}</h3>
+              <span className="text-xs text-muted-foreground flex-shrink-0">{mod.version}</span>
             </div>
-          </CardHeader>
-        </Card>
+            <p className="text-sm text-muted-foreground truncate">{mod.description}</p>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-shrink-0 opacity-0 group-hover:opacity-100 h-8 w-8 p-0 text-muted-foreground hover:text-destructive transition-opacity"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ))}
     </div>
   )
