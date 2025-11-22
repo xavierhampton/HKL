@@ -1,7 +1,9 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { Download, Trash2, ToggleLeft, ToggleRight, User } from 'lucide-react'
+import { Trash2, Power, Package } from 'lucide-react'
+
+type FilterType = 'all' | 'enabled' | 'installed'
 
 interface Mod {
   id: string
@@ -11,6 +13,7 @@ interface Mod {
   author: string
   enabled: boolean
   installed: boolean
+  type: 'mod' | 'modpack'
 }
 
 const mockMods: Mod[] = [
@@ -22,6 +25,7 @@ const mockMods: Mod[] = [
     author: 'PrashantMohta',
     enabled: true,
     installed: true,
+    type: 'mod',
   },
   {
     id: '2',
@@ -31,6 +35,7 @@ const mockMods: Mod[] = [
     author: 'fifty-six',
     enabled: true,
     installed: true,
+    type: 'mod',
   },
   {
     id: '3',
@@ -40,80 +45,70 @@ const mockMods: Mod[] = [
     author: 'homothetyhk',
     enabled: false,
     installed: true,
+    type: 'mod',
+  },
+  {
+    id: '4',
+    name: 'Speedrun Pack',
+    description: 'Essential mods for speedrunning',
+    version: '1.0.0',
+    author: 'Community',
+    enabled: false,
+    installed: true,
+    type: 'modpack',
   },
 ]
 
-export function ModList({ searchQuery }: { searchQuery: string }) {
-  const filteredMods = mockMods.filter(
-    (mod) =>
-      mod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      mod.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      mod.author.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+export function ModList({ searchQuery, filter }: { searchQuery: string; filter: FilterType }) {
+  const filteredMods = mockMods
+    .filter((mod) => {
+      if (filter === 'enabled') return mod.enabled
+      if (filter === 'installed') return mod.installed
+      return true
+    })
+    .filter(
+      (mod) =>
+        mod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        mod.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        mod.author.toLowerCase().includes(searchQuery.toLowerCase())
+    )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {filteredMods.map((mod) => (
         <Card
           key={mod.id}
-          className="bg-card/40 backdrop-blur-sm border-border/40 hover:border-purple-500/30 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10"
+          className="bg-card/40 border-border/40 hover:border-border transition-all"
         >
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <CardTitle className="text-xl font-bold">{mod.name}</CardTitle>
-                  <Badge
-                    variant="secondary"
-                    className="bg-muted/50 text-muted-foreground border border-border/40"
-                  >
-                    v{mod.version}
-                  </Badge>
-                  {mod.enabled && (
-                    <Badge
-                      className="bg-gradient-to-r from-purple-500 to-blue-600 text-white border-0"
-                    >
-                      Active
-                    </Badge>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  {mod.type === 'modpack' && (
+                    <Package className="h-4 w-4 text-purple-400 flex-shrink-0" />
                   )}
+                  <CardTitle className="text-base truncate">{mod.name}</CardTitle>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                    {mod.version}
+                  </Badge>
                 </div>
-                <CardDescription className="mt-2 text-base">{mod.description}</CardDescription>
-                <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
-                  <User className="h-3.5 w-3.5" />
-                  <span>{mod.author}</span>
-                </div>
+                <p className="text-sm text-muted-foreground line-clamp-1">{mod.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">{mod.author}</p>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-7 w-7 p-0 ${mod.enabled ? 'text-purple-400' : 'text-muted-foreground'}`}
+                >
+                  <Power className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className={mod.enabled ? "border-purple-500/30 hover:bg-purple-500/10" : ""}
-              >
-                {mod.enabled ? (
-                  <>
-                    <ToggleRight className="h-4 w-4 mr-2" />
-                    Disable
-                  </>
-                ) : (
-                  <>
-                    <ToggleLeft className="h-4 w-4 mr-2" />
-                    Enable
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="bg-destructive/80 hover:bg-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Uninstall
-              </Button>
-            </div>
-          </CardContent>
         </Card>
       ))}
     </div>
