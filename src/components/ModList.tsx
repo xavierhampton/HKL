@@ -1,7 +1,9 @@
 import { Button } from './ui/button'
-import { Power, Trash2 } from 'lucide-react'
+import { Switch } from './ui/switch'
+import { Trash2 } from 'lucide-react'
 
 type TabType = 'mods' | 'packs'
+type FilterType = 'all' | 'enabled' | 'installed'
 
 interface Mod {
   id: string
@@ -77,11 +79,16 @@ const mockMods: Mod[] = [
   },
 ]
 
-export function ModList({ searchQuery, type }: { searchQuery: string; type: TabType }) {
+export function ModList({ searchQuery, type, filter }: { searchQuery: string; type: TabType; filter: FilterType }) {
   const filteredMods = mockMods
     .filter((mod) => {
       if (type === 'mods') return mod.type === 'mod'
       if (type === 'packs') return mod.type === 'modpack'
+      return true
+    })
+    .filter((mod) => {
+      if (filter === 'enabled') return mod.enabled
+      if (filter === 'installed') return mod.installed
       return true
     })
     .filter(
@@ -98,15 +105,7 @@ export function ModList({ searchQuery, type }: { searchQuery: string; type: TabT
           key={mod.id}
           className="group flex items-center gap-3 p-3 rounded-lg border border-border/40 bg-card/20 hover:bg-card/40 transition-colors"
         >
-          <button
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-              mod.enabled
-                ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
-                : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
-            }`}
-          >
-            <Power className="h-4 w-4" />
-          </button>
+          <Switch checked={mod.enabled} className="flex-shrink-0" />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
