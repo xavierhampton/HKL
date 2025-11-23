@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { ModList } from './components/ModList'
-import { ModInstaller } from './components/ModInstaller'
+import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
 import { Input } from './components/ui/input'
-import { Search, Package, Boxes } from 'lucide-react'
+import { Button } from './components/ui/button'
+import { Search, Package, Boxes, Settings as SettingsIcon, Play } from 'lucide-react'
 
-type TabType = 'mods' | 'packs'
+type TabType = 'mods' | 'packs' | 'settings'
 type FilterType = 'all' | 'enabled' | 'installed'
 
 export default function App() {
@@ -47,46 +48,68 @@ export default function App() {
                 <Package className="h-4 w-4" />
                 Packs
               </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  activeTab === 'settings'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                }`}
+              >
+                <SettingsIcon className="h-4 w-4" />
+                Settings
+              </button>
             </div>
           </nav>
 
           <div className="p-3 border-t border-border/40">
-            <ModInstaller />
+            <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700">
+              <Play className="h-4 w-4 mr-2" />
+              Launch Game
+            </Button>
           </div>
         </aside>
 
         <main className="flex-1 flex flex-col">
-          <header className="border-b border-border/40 p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex gap-1 bg-muted/30 rounded-lg p-0.5">
-                {(['all', 'enabled', 'installed'] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                      filter === f
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
+          {activeTab !== 'settings' && (
+            <header className="border-b border-border/40 p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex gap-1 bg-muted/30 rounded-lg p-0.5">
+                  {(['all', 'enabled', 'installed'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFilter(f)}
+                      className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                        filter === f
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-background/50 border-border/40"
-              />
-            </div>
-          </header>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 bg-background/50 border-border/40"
+                />
+              </div>
+            </header>
+          )}
 
-          <div className="flex-1 overflow-auto p-4">
-            <ModList searchQuery={searchQuery} type={activeTab} filter={filter} />
+          <div className="flex-1 overflow-auto">
+            {activeTab === 'settings' ? (
+              <Settings />
+            ) : (
+              <div className="p-4">
+                <ModList searchQuery={searchQuery} type={activeTab} filter={filter} />
+              </div>
+            )}
           </div>
         </main>
       </div>
