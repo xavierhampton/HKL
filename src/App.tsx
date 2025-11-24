@@ -73,7 +73,7 @@ export default function App() {
         <main className="flex-1 flex flex-col">
           {activeTab !== 'settings' && (
             <header className="border-b border-border/40 p-4">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex gap-1 bg-muted/30 rounded-lg p-0.5">
                   {(['all', 'enabled', 'installed'] as const).map((f) => (
                     <button
@@ -89,6 +89,9 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+                <Button variant="outline" size="sm">
+                  Disable All
+                </Button>
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />

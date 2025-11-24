@@ -6,7 +6,7 @@ export function Settings() {
   return (
     <div className="p-4 space-y-6">
       <div>
-        <h2 className="text-lg font-semibold mb-4">Game Settings</h2>
+        <h2 className="text-lg font-semibold mb-4">HKL Settings</h2>
         <div className="space-y-3">
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">
@@ -23,6 +23,14 @@ export function Settings() {
                 Browse
               </Button>
             </div>
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-2 block">
+              Mod Management
+            </label>
+            <Button variant="destructive" size="sm">
+              Uninstall All Mods
+            </Button>
           </div>
         </div>
       </div>
