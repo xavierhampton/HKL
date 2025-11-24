@@ -183,7 +183,9 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
 
                 {mod.dependencies && mod.dependencies.length > 0 && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Dependencies</p>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      {mod.type === 'modpack' ? 'Mods' : 'Dependencies'}
+                    </p>
                     <div className="flex flex-wrap gap-1.5">
                       {mod.dependencies.map((dep, i) => (
                         <span
