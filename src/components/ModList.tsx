@@ -18,6 +18,7 @@ interface Mod {
   githubUrl?: string
   dependencies?: string[]
   integrations?: string[]
+  hasUpdate?: boolean
 }
 
 const mockMods: Mod[] = [
@@ -33,6 +34,7 @@ const mockMods: Mod[] = [
     githubUrl: 'https://github.com/PrashantMohta/HollowKnight.CustomKnight',
     dependencies: ['Satchel', 'Vasi'],
     integrations: [],
+    hasUpdate: false,
   },
   {
     id: '2',
@@ -46,6 +48,7 @@ const mockMods: Mod[] = [
     githubUrl: 'https://github.com/fifty-six/HollowKnight.QoL',
     dependencies: [],
     integrations: ['Randomizer 4'],
+    hasUpdate: true,
   },
   {
     id: '3',
@@ -59,6 +62,7 @@ const mockMods: Mod[] = [
     githubUrl: 'https://github.com/homothetyhk/RandomizerMod',
     dependencies: ['MenuChanger', 'ItemChanger'],
     integrations: ['Benchwarp', 'QoL'],
+    hasUpdate: false,
   },
   {
     id: '4',
@@ -67,11 +71,12 @@ const mockMods: Mod[] = [
     version: '2.1.3',
     author: 'homothetyhk',
     enabled: false,
-    installed: true,
+    installed: false,
     type: 'mod',
     githubUrl: 'https://github.com/homothetyhk/HollowKnight.BenchwarpMod',
     dependencies: [],
     integrations: ['Randomizer 4'],
+    hasUpdate: false,
   },
   {
     id: '5',
@@ -161,6 +166,32 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
+
+              {mod.type === 'mod' && !mod.installed && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                  }}
+                >
+                  Install
+                </Button>
+              )}
+
+              {mod.type === 'mod' && mod.installed && mod.hasUpdate && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                  }}
+                >
+                  Update
+                </Button>
+              )}
             </div>
 
             {isExpanded && (
@@ -215,28 +246,43 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                   </div>
                 )}
 
-                {mod.githubUrl && mod.type === 'mod' && (
+                {mod.type === 'mod' && (
                   <div className="flex gap-3">
-                    <a
-                      href={mod.githubUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      View on GitHub
-                    </a>
-                    <a
-                      href={`${mod.githubUrl}#readme`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      View README
-                    </a>
+                    {mod.githubUrl && (
+                      <>
+                        <a
+                          href={mod.githubUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          View on GitHub
+                        </a>
+                        <a
+                          href={`${mod.githubUrl}#readme`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          View README
+                        </a>
+                      </>
+                    )}
+                    {mod.installed && !mod.hasUpdate && (
+                      <button
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Uninstall Mod
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
