@@ -16,6 +16,8 @@ interface Mod {
   installed: boolean
   type: 'mod' | 'modpack'
   githubUrl?: string
+  dependencies?: string[]
+  integrations?: string[]
 }
 
 const mockMods: Mod[] = [
@@ -29,6 +31,8 @@ const mockMods: Mod[] = [
     installed: true,
     type: 'mod',
     githubUrl: 'https://github.com/PrashantMohta/HollowKnight.CustomKnight',
+    dependencies: ['Satchel', 'Vasi'],
+    integrations: [],
   },
   {
     id: '2',
@@ -40,6 +44,8 @@ const mockMods: Mod[] = [
     installed: true,
     type: 'mod',
     githubUrl: 'https://github.com/fifty-six/HollowKnight.QoL',
+    dependencies: [],
+    integrations: ['Randomizer 4'],
   },
   {
     id: '3',
@@ -51,6 +57,8 @@ const mockMods: Mod[] = [
     installed: true,
     type: 'mod',
     githubUrl: 'https://github.com/homothetyhk/RandomizerMod',
+    dependencies: ['MenuChanger', 'ItemChanger'],
+    integrations: ['Benchwarp', 'QoL'],
   },
   {
     id: '4',
@@ -62,6 +70,8 @@ const mockMods: Mod[] = [
     installed: true,
     type: 'mod',
     githubUrl: 'https://github.com/homothetyhk/HollowKnight.BenchwarpMod',
+    dependencies: [],
+    integrations: ['Randomizer 4'],
   },
   {
     id: '5',
@@ -73,6 +83,8 @@ const mockMods: Mod[] = [
     installed: true,
     type: 'modpack',
     githubUrl: 'https://github.com/community/speedrun-pack',
+    dependencies: ['QoL', 'Benchwarp'],
+    integrations: [],
   },
   {
     id: '6',
@@ -84,6 +96,8 @@ const mockMods: Mod[] = [
     installed: true,
     type: 'modpack',
     githubUrl: 'https://github.com/community/rando-complete',
+    dependencies: ['Randomizer 4', 'QoL', 'Benchwarp'],
+    integrations: ['Custom Knight'],
   },
 ]
 
@@ -134,40 +148,93 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                 </div>
                 <p className="text-sm text-muted-foreground truncate">{mod.description}</p>
               </div>
+
+              {mod.type === 'modpack' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-shrink-0 h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
 
             {isExpanded && (
-              <div className="px-3 pb-3 pt-0 space-y-3 border-t border-border/40 mt-2">
-                <div>
-                  <p className="text-sm text-foreground">{mod.description}</p>
-                  <p className="text-xs text-muted-foreground mt-1">by {mod.author}</p>
+              <div className="px-3 pb-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Author:</span>
+                    <span className="ml-2 text-foreground">{mod.author}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Version:</span>
+                    <span className="ml-2 text-foreground">{mod.version}</span>
+                  </div>
                 </div>
 
-                {mod.githubUrl && (
-                  <a
-                    href={mod.githubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    View on GitHub
-                  </a>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm text-foreground">{mod.description}</p>
+                </div>
+
+                {mod.dependencies && mod.dependencies.length > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Dependencies</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {mod.dependencies.map((dep, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 text-xs rounded-md bg-muted/50 text-foreground border border-border/40"
+                        >
+                          {dep}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
-                {mod.type === 'modpack' && (
+                {mod.integrations && mod.integrations.length > 0 && (
                   <div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                      }}
+                    <p className="text-sm text-muted-foreground mb-1">Integrations</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {mod.integrations.map((int, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 text-xs rounded-md bg-muted/50 text-foreground border border-border/40"
+                        >
+                          {int}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {mod.githubUrl && (
+                  <div className="flex gap-3">
+                    <a
+                      href={mod.githubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Pack
-                    </Button>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View on GitHub
+                    </a>
+                    <a
+                      href={`${mod.githubUrl}#readme`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View README
+                    </a>
                   </div>
                 )}
               </div>
