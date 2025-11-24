@@ -39,16 +39,11 @@ export function ModList({ searchQuery, type, filter, gameDirectory }: { searchQu
             ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
             : 'Unknown'
 
-          const latestLink = modLink.links[0]
-          const version = latestLink?.URL
-            ? latestLink.URL.split('/').pop()?.replace('.zip', '') || '1.0.0'
-            : '1.0.0'
-
           return {
             id: `${index}`,
             name: modLink.name,
             description: modLink.description || 'No description available',
-            version: version,
+            version: modLink.version,
             author: author,
             enabled: false,
             installed: false,
@@ -108,7 +103,9 @@ export function ModList({ searchQuery, type, filter, gameDirectory }: { searchQu
                   <h3 className="font-medium truncate">{mod.name}</h3>
                   <span className="text-xs text-muted-foreground flex-shrink-0">{mod.version}</span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate">{mod.description}</p>
+                <p className="text-sm text-muted-foreground truncate">
+                  {mod.description.length > 150 ? `${mod.description.substring(0, 150)}...` : mod.description}
+                </p>
               </div>
 
               {mod.type === 'modpack' && (

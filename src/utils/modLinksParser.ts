@@ -1,6 +1,7 @@
 export interface ModLink {
   name: string
   description: string
+  version: string
   repository: string
   dependencies: string[]
   links: {
@@ -21,6 +22,7 @@ export function parseModLinks(xmlContent: string): ModLink[] {
   manifestElements.forEach((manifest) => {
     const name = manifest.querySelector('Name')?.textContent || ''
     const description = manifest.querySelector('Description')?.textContent || ''
+    const version = manifest.querySelector('Version')?.textContent || '1.0.0.0'
     const repository = manifest.querySelector('Repository')?.textContent || ''
 
     const dependencies: string[] = []
@@ -42,6 +44,7 @@ export function parseModLinks(xmlContent: string): ModLink[] {
       mods.push({
         name,
         description,
+        version,
         repository,
         dependencies,
         links,
@@ -49,5 +52,5 @@ export function parseModLinks(xmlContent: string): ModLink[] {
     }
   })
 
-  return mods
+  return mods.sort((a, b) => a.name.localeCompare(b.name))
 }
