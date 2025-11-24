@@ -64,7 +64,7 @@ export default function App() {
       <TitleBar />
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-64 border-r border-border/40 flex flex-col">
+        <aside className="w-64 min-w-64 flex-shrink-0 border-r border-border/40 flex flex-col">
           <div className="p-4 border-b border-border/40">
             <h1 className="text-xl font-bold">HKL</h1>
           </div>
