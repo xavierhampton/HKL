@@ -106,8 +106,9 @@ const mockMods: Mod[] = [
   },
 ]
 
-export function ModList({ searchQuery, type, filter }: { searchQuery: string; type: TabType; filter: FilterType }) {
+export function ModList({ searchQuery, type, filter, gameDirectory }: { searchQuery: string; type: TabType; filter: FilterType; gameDirectory: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const hasValidDirectory = !!gameDirectory
 
   const filteredMods = mockMods
     .filter((mod) => {
@@ -144,6 +145,7 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                 checked={mod.enabled}
                 className="flex-shrink-0"
                 onClick={(e) => e.stopPropagation()}
+                disabled={!hasValidDirectory}
               />
 
               <div className="flex-1 min-w-0">
@@ -162,6 +164,7 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                   onClick={(e) => {
                     e.stopPropagation()
                   }}
+                  disabled={!hasValidDirectory}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -175,6 +178,7 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                   onClick={(e) => {
                     e.stopPropagation()
                   }}
+                  disabled={!hasValidDirectory}
                 >
                   Install
                 </Button>
@@ -188,6 +192,7 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                   onClick={(e) => {
                     e.stopPropagation()
                   }}
+                  disabled={!hasValidDirectory}
                 >
                   Update
                 </Button>
@@ -274,10 +279,11 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                     )}
                     {mod.installed && (
                       <button
-                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors"
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={(e) => {
                           e.stopPropagation()
                         }}
+                        disabled={!hasValidDirectory}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         Uninstall Mod

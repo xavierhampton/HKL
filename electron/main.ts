@@ -1,5 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
+import Store from 'electron-store'
+import fs from 'fs'
+
+const store = new Store()
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -30,9 +34,35 @@ function createWindow() {
     win.close()
   })
 
+  ipcMain.handle('get-game-directory', () => {
+    return store.get('gameDirectory', '')
+  })
+
+  ipcMain.handle('select-game-directory', async () => {
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory'],
+      title: 'Select Hollow Knight Directory',
+    })
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      const selectedPath = result.filePaths[0]
+      const dirName = path.basename(selectedPath)
+
+      if (dirName === 'Hollow Knight' || fs.existsSync(path.join(selectedPath, 'hollow_knight.exe')) || fs.existsSync(path.join(selectedPath, 'hollow_knight_Data'))) {
+        store.set('gameDirectory', selectedPath)
+        win.webContents.send('game-directory-updated', selectedPath)
+        return { success: true, path: selectedPath }
+      } else {
+        return { success: false, error: 'Selected directory must be named "Hollow Knight" or contain Hollow Knight game files' }
+      }
+    }
+
+    return { success: false, error: 'No directory selected' }
+  })
+
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)
-    // win.webContents.openDevTools()
+    win.webContents.openDevTools()
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }

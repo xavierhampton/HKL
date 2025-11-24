@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ModList } from './components/ModList'
 import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
 import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
 import { Search, Package, Boxes, Settings as SettingsIcon, Play } from 'lucide-react'
+
+const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
 type TabType = 'mods' | 'packs' | 'settings'
 type FilterType = 'all' | 'enabled' | 'installed'
@@ -13,6 +15,25 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<TabType>('mods')
   const [filter, setFilter] = useState<FilterType>('all')
+  const [gameDirectory, setGameDirectory] = useState('')
+
+  useEffect(() => {
+    if (ipcRenderer) {
+      ipcRenderer.invoke('get-game-directory').then((dir: string) => {
+        setGameDirectory(dir)
+      })
+
+      const handleDirectoryUpdate = (_event: any, dir: string) => {
+        setGameDirectory(dir)
+      }
+
+      ipcRenderer.on('game-directory-updated', handleDirectoryUpdate)
+
+      return () => {
+        ipcRenderer.removeListener('game-directory-updated', handleDirectoryUpdate)
+      }
+    }
+  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -63,7 +84,10 @@ export default function App() {
           </nav>
 
           <div className="p-3 border-t border-border/40">
-            <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/80">
+            <Button
+              className="w-full bg-accent text-accent-foreground hover:bg-accent/80"
+              disabled={!gameDirectory}
+            >
               <Play className="h-4 w-4 mr-2" />
               Launch Game
             </Button>
@@ -89,7 +113,7 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={!gameDirectory}>
                   Disable All
                 </Button>
               </div>
@@ -110,7 +134,7 @@ export default function App() {
               <Settings />
             ) : (
               <div className="p-4">
-                <ModList searchQuery={searchQuery} type={activeTab} filter={filter} />
+                <ModList searchQuery={searchQuery} type={activeTab} filter={filter} gameDirectory={gameDirectory} />
               </div>
             )}
           </div>
