@@ -272,7 +272,7 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                         </a>
                       </>
                     )}
-                    {mod.installed && !mod.hasUpdate && (
+                    {mod.installed && (
                       <button
                         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors"
                         onClick={(e) => {
