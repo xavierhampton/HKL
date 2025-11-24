@@ -3,30 +3,12 @@ import path from 'path'
 import Store from 'electron-store'
 import fs from 'fs'
 import https from 'https'
-import { DOMParser } from 'xmldom'
 
 const store = new Store()
 
 const MODLINKS_URL = 'https://raw.githubusercontent.com/hk-modding/modlinks/main/ModLinks.xml'
 const MODLINKS_TIMEOUT = 5000
 const CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours
-
-interface ParsedMod {
-  id: string
-  name: string
-  description: string
-  version: string
-  author: string
-  enabled: boolean
-  installed: boolean
-  type: 'mod' | 'modpack'
-  githubUrl?: string
-  dependencies?: string[]
-  integrations?: string[]
-  hasUpdate?: boolean
-}
-
-let cachedParsedMods: ParsedMod[] | null = null
 
 async function fetchModLinks(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -57,63 +39,6 @@ async function fetchModLinks(): Promise<string> {
   })
 }
 
-function parseModLinks(xmlContent: string): ParsedMod[] {
-  if (!xmlContent) return []
-
-  const parser = new DOMParser()
-  const xmlDoc = parser.parseFromString(xmlContent, 'text/xml')
-
-  const manifestElements = xmlDoc.getElementsByTagName('Manifest')
-  const mods: ParsedMod[] = []
-
-  for (let i = 0; i < manifestElements.length; i++) {
-    const manifest = manifestElements[i]
-
-    const nameElement = manifest.getElementsByTagName('Name')[0]
-    const descriptionElement = manifest.getElementsByTagName('Description')[0]
-    const versionElement = manifest.getElementsByTagName('Version')[0]
-    const repositoryElement = manifest.getElementsByTagName('Repository')[0]
-
-    const name = nameElement?.textContent || ''
-    const description = descriptionElement?.textContent || ''
-    const version = versionElement?.textContent || '1.0.0.0'
-    const repository = repositoryElement?.textContent || ''
-
-    const dependencies: string[] = []
-    const depsElement = manifest.getElementsByTagName('Dependencies')[0]
-    if (depsElement) {
-      const stringElements = depsElement.getElementsByTagName('string')
-      for (let j = 0; j < stringElements.length; j++) {
-        const depName = stringElements[j].textContent?.trim()
-        if (depName) dependencies.push(depName)
-      }
-    }
-
-    if (name) {
-      const author = repository
-        ? repository.split('/').slice(-2, -1)[0] || 'Unknown'
-        : 'Unknown'
-
-      mods.push({
-        id: `${i}`,
-        name,
-        description: description || 'No description available',
-        version,
-        author,
-        enabled: false,
-        installed: false,
-        type: 'mod' as const,
-        githubUrl: repository || undefined,
-        dependencies: dependencies.length > 0 ? dependencies : undefined,
-        integrations: [],
-        hasUpdate: false,
-      })
-    }
-  }
-
-  return mods.sort((a, b) => a.name.localeCompare(b.name))
-}
-
 async function updateModLinksCache(): Promise<{ success: boolean; updated: boolean; error?: string }> {
   const lastUpdate = store.get('modLinksLastUpdate', 0) as number
   const now = Date.now()
@@ -130,8 +55,6 @@ async function updateModLinksCache(): Promise<{ success: boolean; updated: boole
     if (newContent !== cachedContent) {
       store.set('modLinksCache', newContent)
       store.set('modLinksLastUpdate', now)
-      // Clear cached parsed mods when XML changes
-      cachedParsedMods = null
       return { success: true, updated: true }
     }
 
@@ -184,15 +107,7 @@ ipcMain.handle('update-modlinks', async () => {
 })
 
 ipcMain.handle('get-modlinks', () => {
-  // Return cached parsed mods if available
-  if (cachedParsedMods) {
-    return cachedParsedMods
-  }
-
-  // Parse XML and cache the result
-  const xmlContent = store.get('modLinksCache', '') as string
-  cachedParsedMods = parseModLinks(xmlContent)
-  return cachedParsedMods
+  return store.get('modLinksCache', '')
 })
 
 // Window control handlers

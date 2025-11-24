@@ -5,6 +5,7 @@ import { TitleBar } from './components/TitleBar'
 import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
 import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle } from 'lucide-react'
+import { parseModLinks } from './utils/modLinksParser'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
@@ -53,7 +54,30 @@ export default function App() {
 
   useEffect(() => {
     if (ipcRenderer) {
-      ipcRenderer.invoke('get-modlinks').then((parsedMods: Mod[]) => {
+      ipcRenderer.invoke('get-modlinks').then((xmlContent: string) => {
+        const modLinks = parseModLinks(xmlContent)
+
+        const parsedMods: Mod[] = modLinks.map((modLink, index) => {
+          const author = modLink.repository
+            ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
+            : 'Unknown'
+
+          return {
+            id: `${index}`,
+            name: modLink.name,
+            description: modLink.description || 'No description available',
+            version: modLink.version,
+            author: author,
+            enabled: false,
+            installed: false,
+            type: 'mod' as const,
+            githubUrl: modLink.repository || undefined,
+            dependencies: modLink.dependencies || [],
+            integrations: [],
+            hasUpdate: false,
+          }
+        })
+
         setMods(parsedMods)
       })
     }
