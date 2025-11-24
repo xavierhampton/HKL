@@ -215,7 +215,7 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                   </div>
                 )}
 
-                {mod.githubUrl && (
+                {mod.githubUrl && mod.type === 'mod' && (
                   <div className="flex gap-3">
                     <a
                       href={mod.githubUrl}
