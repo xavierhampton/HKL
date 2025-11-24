@@ -7,6 +7,7 @@ function createWindow() {
     height: 800,
     frame: false,
     titleBarStyle: 'hidden',
+    icon: path.join(__dirname, '../public/icon.png'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
