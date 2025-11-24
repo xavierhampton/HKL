@@ -165,7 +165,7 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
 
             {isExpanded && (
               <div className="px-3 pb-3 space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Author:</span>
                     <span className="ml-2 text-foreground">{mod.author}</span>
