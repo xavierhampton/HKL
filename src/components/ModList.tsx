@@ -164,8 +164,8 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
             </div>
 
             {isExpanded && (
-              <div className="px-3 pb-3 space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="px-3 pb-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Author:</span>
                     <span className="ml-2 text-foreground">{mod.author}</span>
@@ -177,13 +177,13 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                 </div>
 
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm text-muted-foreground mb-0.5">Description</p>
                   <p className="text-sm text-foreground">{mod.description}</p>
                 </div>
 
                 {mod.dependencies && mod.dependencies.length > 0 && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">
+                    <p className="text-sm text-muted-foreground mb-0.5">
                       {mod.type === 'modpack' ? 'Mods' : 'Dependencies'}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -199,9 +199,9 @@ export function ModList({ searchQuery, type, filter }: { searchQuery: string; ty
                   </div>
                 )}
 
-                {mod.integrations && mod.integrations.length > 0 && (
+                {mod.integrations && mod.integrations.length > 0 && mod.type === 'mod' && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Integrations</p>
+                    <p className="text-sm text-muted-foreground mb-0.5">Integrations</p>
                     <div className="flex flex-wrap gap-1.5">
                       {mod.integrations.map((int, i) => (
                         <span
