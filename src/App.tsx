@@ -4,7 +4,7 @@ import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
 import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
-import { Search, Package, Boxes, Settings as SettingsIcon, Play } from 'lucide-react'
+import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle } from 'lucide-react'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
@@ -133,7 +133,13 @@ export default function App() {
             {activeTab === 'settings' ? (
               <Settings />
             ) : (
-              <div className="p-4">
+              <div className="p-4 space-y-3">
+                {!gameDirectory && (
+                  <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                    <span className="text-sm text-destructive">No game directory set. Go to Settings to select your Hollow Knight directory.</span>
+                  </div>
+                )}
                 <ModList searchQuery={searchQuery} type={activeTab} filter={filter} gameDirectory={gameDirectory} />
               </div>
             )}
