@@ -63,7 +63,7 @@ export default function App() {
           </nav>
 
           <div className="p-3 border-t border-border/40">
-            <Button className="w-full bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700">
+            <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/80">
               <Play className="h-4 w-4 mr-2" />
               Launch Game
             </Button>
@@ -79,13 +79,13 @@ export default function App() {
                     <button
                       key={f}
                       onClick={() => setFilter(f)}
-                      className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                      className={`w-20 px-2.5 py-1 text-xs rounded transition-colors ${
                         filter === f
                           ? 'bg-accent text-accent-foreground'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      {f}
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
                     </button>
                   ))}
                 </div>
