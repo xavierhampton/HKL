@@ -5,17 +5,34 @@ import { TitleBar } from './components/TitleBar'
 import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
 import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle } from 'lucide-react'
+import { parseModLinks } from './utils/modLinksParser'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
 type TabType = 'mods' | 'packs' | 'settings'
 type FilterType = 'all' | 'enabled' | 'installed'
 
+export interface Mod {
+  id: string
+  name: string
+  description: string
+  version: string
+  author: string
+  enabled: boolean
+  installed: boolean
+  type: 'mod' | 'modpack'
+  githubUrl?: string
+  dependencies?: string[]
+  integrations?: string[]
+  hasUpdate?: boolean
+}
+
 export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<TabType>('mods')
   const [filter, setFilter] = useState<FilterType>('all')
   const [gameDirectory, setGameDirectory] = useState('')
+  const [mods, setMods] = useState<Mod[]>([])
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -32,6 +49,37 @@ export default function App() {
       return () => {
         ipcRenderer.removeListener('game-directory-updated', handleDirectoryUpdate)
       }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (ipcRenderer) {
+      ipcRenderer.invoke('get-modlinks').then((xmlContent: string) => {
+        const modLinks = parseModLinks(xmlContent)
+
+        const parsedMods: Mod[] = modLinks.map((modLink, index) => {
+          const author = modLink.repository
+            ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
+            : 'Unknown'
+
+          return {
+            id: `${index}`,
+            name: modLink.name,
+            description: modLink.description || 'No description available',
+            version: modLink.version,
+            author: author,
+            enabled: false,
+            installed: false,
+            type: 'mod' as const,
+            githubUrl: modLink.repository || undefined,
+            dependencies: modLink.dependencies || [],
+            integrations: [],
+            hasUpdate: false,
+          }
+        })
+
+        setMods(parsedMods)
+      })
     }
   }, [])
 
@@ -140,7 +188,7 @@ export default function App() {
                     <span className="text-sm text-destructive">No game directory set. Go to Settings to select your Hollow Knight directory.</span>
                   </div>
                 )}
-                <ModList searchQuery={searchQuery} type={activeTab} filter={filter} gameDirectory={gameDirectory} />
+                <ModList searchQuery={searchQuery} type={activeTab} filter={filter} gameDirectory={gameDirectory} mods={mods} />
               </div>
             )}
           </div>

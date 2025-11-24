@@ -1,64 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
 import { Trash2, ExternalLink } from 'lucide-react'
-import { parseModLinks } from '../utils/modLinksParser'
-
-const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
+import { Mod } from '../App'
 
 type TabType = 'mods' | 'packs'
 type FilterType = 'all' | 'enabled' | 'installed'
 
-interface Mod {
-  id: string
-  name: string
-  description: string
-  version: string
-  author: string
-  enabled: boolean
-  installed: boolean
-  type: 'mod' | 'modpack'
-  githubUrl?: string
-  dependencies?: string[]
-  integrations?: string[]
-  hasUpdate?: boolean
-}
-
-export function ModList({ searchQuery, type, filter, gameDirectory }: { searchQuery: string; type: TabType; filter: FilterType; gameDirectory: string }) {
+export function ModList({ searchQuery, type, filter, gameDirectory, mods }: { searchQuery: string; type: TabType; filter: FilterType; gameDirectory: string; mods: Mod[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [mods, setMods] = useState<Mod[]>([])
   const hasValidDirectory = !!gameDirectory
-
-  useEffect(() => {
-    if (ipcRenderer) {
-      ipcRenderer.invoke('get-modlinks').then((xmlContent: string) => {
-        const modLinks = parseModLinks(xmlContent)
-
-        const parsedMods: Mod[] = modLinks.map((modLink, index) => {
-          const author = modLink.repository
-            ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
-            : 'Unknown'
-
-          return {
-            id: `${index}`,
-            name: modLink.name,
-            description: modLink.description || 'No description available',
-            version: modLink.version,
-            author: author,
-            enabled: false,
-            installed: false,
-            type: 'mod' as const,
-            githubUrl: modLink.repository || undefined,
-            dependencies: modLink.dependencies || [],
-            integrations: [],
-            hasUpdate: false,
-          }
-        })
-
-        setMods(parsedMods)
-      })
-    }
-  }, [])
 
   const filteredMods = mods
     .filter((mod) => {
@@ -104,7 +55,7 @@ export function ModList({ searchQuery, type, filter, gameDirectory }: { searchQu
                   <span className="text-xs text-muted-foreground flex-shrink-0">{mod.version}</span>
                 </div>
                 <p className="text-sm text-muted-foreground truncate">
-                  {mod.description.length > 150 ? `${mod.description.substring(0, 150)}...` : mod.description}
+                  {mod.description.length > 60 ? `${mod.description.substring(0, 60)}...` : mod.description}
                 </p>
               </div>
 
