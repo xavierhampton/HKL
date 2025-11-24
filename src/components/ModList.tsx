@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
 import { Trash2, ExternalLink } from 'lucide-react'
+import { parseModLinks } from '../utils/modLinksParser'
+
+const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
 type TabType = 'mods' | 'packs'
 type FilterType = 'all' | 'enabled' | 'installed'
@@ -21,96 +24,48 @@ interface Mod {
   hasUpdate?: boolean
 }
 
-const mockMods: Mod[] = [
-  {
-    id: '1',
-    name: 'Custom Knight',
-    description: 'Customize the appearance of the Knight',
-    version: '1.5.0',
-    author: 'PrashantMohta',
-    enabled: true,
-    installed: true,
-    type: 'mod',
-    githubUrl: 'https://github.com/PrashantMohta/HollowKnight.CustomKnight',
-    dependencies: ['Satchel', 'Vasi'],
-    integrations: [],
-    hasUpdate: false,
-  },
-  {
-    id: '2',
-    name: 'QoL',
-    description: 'Quality of life improvements',
-    version: '4.3.1',
-    author: 'fifty-six',
-    enabled: true,
-    installed: true,
-    type: 'mod',
-    githubUrl: 'https://github.com/fifty-six/HollowKnight.QoL',
-    dependencies: [],
-    integrations: ['Randomizer 4'],
-    hasUpdate: true,
-  },
-  {
-    id: '3',
-    name: 'Randomizer 4',
-    description: 'Randomize item locations',
-    version: '4.1.0',
-    author: 'homothetyhk',
-    enabled: false,
-    installed: true,
-    type: 'mod',
-    githubUrl: 'https://github.com/homothetyhk/RandomizerMod',
-    dependencies: ['MenuChanger', 'ItemChanger'],
-    integrations: ['Benchwarp', 'QoL'],
-    hasUpdate: false,
-  },
-  {
-    id: '4',
-    name: 'Benchwarp',
-    description: 'Fast travel between benches',
-    version: '2.1.3',
-    author: 'homothetyhk',
-    enabled: false,
-    installed: false,
-    type: 'mod',
-    githubUrl: 'https://github.com/homothetyhk/HollowKnight.BenchwarpMod',
-    dependencies: [],
-    integrations: ['Randomizer 4'],
-    hasUpdate: false,
-  },
-  {
-    id: '5',
-    name: 'Speedrun Pack',
-    description: 'Essential mods for speedrunning',
-    version: '1.0.0',
-    author: 'Community',
-    enabled: false,
-    installed: true,
-    type: 'modpack',
-    githubUrl: 'https://github.com/community/speedrun-pack',
-    dependencies: ['QoL', 'Benchwarp'],
-    integrations: [],
-  },
-  {
-    id: '6',
-    name: 'Rando Complete',
-    description: 'Full randomizer experience with QoL',
-    version: '2.0.1',
-    author: 'Community',
-    enabled: true,
-    installed: true,
-    type: 'modpack',
-    githubUrl: 'https://github.com/community/rando-complete',
-    dependencies: ['Randomizer 4', 'QoL', 'Benchwarp'],
-    integrations: ['Custom Knight'],
-  },
-]
-
 export function ModList({ searchQuery, type, filter, gameDirectory }: { searchQuery: string; type: TabType; filter: FilterType; gameDirectory: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [mods, setMods] = useState<Mod[]>([])
   const hasValidDirectory = !!gameDirectory
 
-  const filteredMods = mockMods
+  useEffect(() => {
+    if (ipcRenderer) {
+      ipcRenderer.invoke('get-modlinks').then((xmlContent: string) => {
+        const modLinks = parseModLinks(xmlContent)
+
+        const parsedMods: Mod[] = modLinks.map((modLink, index) => {
+          const author = modLink.repository
+            ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
+            : 'Unknown'
+
+          const latestLink = modLink.links[0]
+          const version = latestLink?.URL
+            ? latestLink.URL.split('/').pop()?.replace('.zip', '') || '1.0.0'
+            : '1.0.0'
+
+          return {
+            id: `${index}`,
+            name: modLink.name,
+            description: modLink.description || 'No description available',
+            version: version,
+            author: author,
+            enabled: false,
+            installed: false,
+            type: 'mod' as const,
+            githubUrl: modLink.repository || undefined,
+            dependencies: modLink.dependencies || [],
+            integrations: [],
+            hasUpdate: false,
+          }
+        })
+
+        setMods(parsedMods)
+      })
+    }
+  }, [])
+
+  const filteredMods = mods
     .filter((mod) => {
       if (type === 'mods') return mod.type === 'mod'
       if (type === 'packs') return mod.type === 'modpack'

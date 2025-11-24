@@ -2,8 +2,64 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import Store from 'electron-store'
 import fs from 'fs'
+import https from 'https'
 
 const store = new Store()
+
+const MODLINKS_URL = 'https://raw.githubusercontent.com/hk-modding/modlinks/main/ModLinks.xml'
+const MODLINKS_TIMEOUT = 5000
+
+async function fetchModLinks(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const request = https.get(MODLINKS_URL, { timeout: MODLINKS_TIMEOUT }, (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`HTTP ${response.statusCode}`))
+        return
+      }
+
+      let data = ''
+      response.on('data', (chunk) => {
+        data += chunk
+      })
+
+      response.on('end', () => {
+        resolve(data)
+      })
+    })
+
+    request.on('timeout', () => {
+      request.destroy()
+      reject(new Error('Request timeout'))
+    })
+
+    request.on('error', (error) => {
+      reject(error)
+    })
+  })
+}
+
+async function updateModLinksCache(): Promise<{ success: boolean; updated: boolean; error?: string }> {
+  try {
+    const newContent = await fetchModLinks()
+    const cachedContent = store.get('modLinksCache', '') as string
+
+    if (newContent !== cachedContent) {
+      store.set('modLinksCache', newContent)
+      store.set('modLinksLastUpdate', Date.now())
+      return { success: true, updated: true }
+    }
+
+    return { success: true, updated: false }
+  } catch (error) {
+    const cachedContent = store.get('modLinksCache', '') as string
+
+    if (cachedContent) {
+      return { success: true, updated: false, error: `Using cached version: ${error instanceof Error ? error.message : 'Unknown error'}` }
+    }
+
+    return { success: false, updated: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -59,6 +115,16 @@ function createWindow() {
 
     return { success: false, error: 'No directory selected' }
   })
+
+  ipcMain.handle('update-modlinks', async () => {
+    return await updateModLinksCache()
+  })
+
+  ipcMain.handle('get-modlinks', () => {
+    return store.get('modLinksCache', '')
+  })
+
+  updateModLinksCache().catch(console.error)
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)
