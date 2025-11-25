@@ -10,6 +10,30 @@ const MODLINKS_URL = 'https://raw.githubusercontent.com/hk-modding/modlinks/main
 const MODLINKS_TIMEOUT = 5000
 const CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours
 
+function getHKLModsPath(gameDirectory: string): string {
+  return path.join(gameDirectory, 'hollow_knight_Data', 'Managed', 'HKL')
+}
+
+function ensureHKLDirectory(gameDirectory: string): { success: boolean; path?: string; error?: string } {
+  if (!gameDirectory) {
+    return { success: false, error: 'No game directory set' }
+  }
+
+  const hklPath = getHKLModsPath(gameDirectory)
+
+  try {
+    if (!fs.existsSync(hklPath)) {
+      fs.mkdirSync(hklPath, { recursive: true })
+    }
+    return { success: true, path: hklPath }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to create HKL directory: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
+}
+
 async function fetchModLinks(): Promise<string> {
   return new Promise((resolve, reject) => {
     const request = https.get(MODLINKS_URL, { timeout: MODLINKS_TIMEOUT }, (response) => {
@@ -108,6 +132,41 @@ ipcMain.handle('update-modlinks', async () => {
 
 ipcMain.handle('get-modlinks', () => {
   return store.get('modLinksCache', '')
+})
+
+ipcMain.handle('get-hkl-mods-path', () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return null
+  return getHKLModsPath(gameDirectory)
+})
+
+ipcMain.handle('ensure-hkl-directory', () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  return ensureHKLDirectory(gameDirectory)
+})
+
+ipcMain.handle('install-mod', async (_event, _modData: any) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+
+  // Ensure HKL directory exists
+  const dirResult = ensureHKLDirectory(gameDirectory)
+  if (!dirResult.success) {
+    return { success: false, error: dirResult.error }
+  }
+
+  try {
+    // TODO: Implement mod installation logic
+    // 1. Download mod from GitHub release
+    // 2. Extract to HKL directory
+    // 3. Verify hash if available
+
+    return { success: true, message: 'Mod installation not yet implemented' }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to install mod: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
 })
 
 // Window control handlers

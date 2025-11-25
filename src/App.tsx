@@ -161,9 +161,16 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <Button variant="outline" size="sm" disabled={!gameDirectory}>
-                  Disable All
-                </Button>
+                <div className="flex gap-2">
+                  {activeTab === 'packs' && (
+                    <Button variant="outline" size="sm" disabled={!gameDirectory}>
+                      Create Pack
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" disabled={!gameDirectory}>
+                    Disable All
+                  </Button>
+                </div>
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
