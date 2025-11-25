@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ModList } from './components/ModList'
 import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
@@ -97,7 +97,7 @@ export default function App() {
     }
   }, [])
 
-  const loadMods = async () => {
+  const loadMods = useCallback(async () => {
     if (!ipcRenderer) return
 
     const xmlContent = await ipcRenderer.invoke('get-modlinks')
@@ -140,7 +140,7 @@ export default function App() {
     })
 
     setMods(parsedMods)
-  }
+  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -240,6 +240,7 @@ export default function App() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
+                  key="search-input"
                   placeholder="search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
