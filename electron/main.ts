@@ -14,6 +14,23 @@ function getHKLModsPath(gameDirectory: string): string {
   return path.join(gameDirectory, 'hollow_knight_Data', 'Managed', 'HKL')
 }
 
+interface InstalledMod {
+  Version: string
+  Enabled: boolean
+}
+
+interface InstalledModsData {
+  InstalledMods: {
+    Mods: {
+      [key: string]: InstalledMod
+    }
+  }
+}
+
+function getInstalledModsPath(gameDirectory: string): string {
+  return path.join(getHKLModsPath(gameDirectory), 'installedMods.json')
+}
+
 function ensureHKLDirectory(gameDirectory: string): { success: boolean; path?: string; error?: string } {
   if (!gameDirectory) {
     return { success: false, error: 'No game directory set' }
@@ -25,6 +42,18 @@ function ensureHKLDirectory(gameDirectory: string): { success: boolean; path?: s
     if (!fs.existsSync(hklPath)) {
       fs.mkdirSync(hklPath, { recursive: true })
     }
+
+    // Create installedMods.json if it doesn't exist
+    const installedModsPath = getInstalledModsPath(gameDirectory)
+    if (!fs.existsSync(installedModsPath)) {
+      const initialData: InstalledModsData = {
+        InstalledMods: {
+          Mods: {}
+        }
+      }
+      fs.writeFileSync(installedModsPath, JSON.stringify(initialData, null, 2))
+    }
+
     return { success: true, path: hklPath }
   } catch (error) {
     return {
@@ -32,6 +61,61 @@ function ensureHKLDirectory(gameDirectory: string): { success: boolean; path?: s
       error: `Failed to create HKL directory: ${error instanceof Error ? error.message : 'Unknown error'}`
     }
   }
+}
+
+function readInstalledMods(gameDirectory: string): InstalledModsData {
+  const installedModsPath = getInstalledModsPath(gameDirectory)
+
+  try {
+    if (fs.existsSync(installedModsPath)) {
+      const data = fs.readFileSync(installedModsPath, 'utf-8')
+      return JSON.parse(data)
+    }
+  } catch (error) {
+    console.error('Failed to read installedMods.json:', error)
+  }
+
+  return {
+    InstalledMods: {
+      Mods: {}
+    }
+  }
+}
+
+function writeInstalledMods(gameDirectory: string, data: InstalledModsData): boolean {
+  const installedModsPath = getInstalledModsPath(gameDirectory)
+
+  try {
+    fs.writeFileSync(installedModsPath, JSON.stringify(data, null, 2))
+    return true
+  } catch (error) {
+    console.error('Failed to write installedMods.json:', error)
+    return false
+  }
+}
+
+function addInstalledMod(gameDirectory: string, modName: string, version: string, enabled: boolean = true): boolean {
+  const data = readInstalledMods(gameDirectory)
+  data.InstalledMods.Mods[modName] = {
+    Version: version,
+    Enabled: enabled
+  }
+  return writeInstalledMods(gameDirectory, data)
+}
+
+function removeInstalledMod(gameDirectory: string, modName: string): boolean {
+  const data = readInstalledMods(gameDirectory)
+  delete data.InstalledMods.Mods[modName]
+  return writeInstalledMods(gameDirectory, data)
+}
+
+function updateModEnabled(gameDirectory: string, modName: string, enabled: boolean): boolean {
+  const data = readInstalledMods(gameDirectory)
+  if (data.InstalledMods.Mods[modName]) {
+    data.InstalledMods.Mods[modName].Enabled = enabled
+    return writeInstalledMods(gameDirectory, data)
+  }
+  return false
 }
 
 async function fetchModLinks(): Promise<string> {
@@ -145,7 +229,31 @@ ipcMain.handle('ensure-hkl-directory', () => {
   return ensureHKLDirectory(gameDirectory)
 })
 
-ipcMain.handle('install-mod', async (_event, _modData: any) => {
+ipcMain.handle('get-installed-mods', () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return null
+  return readInstalledMods(gameDirectory)
+})
+
+ipcMain.handle('toggle-mod-enabled', (_event, modName: string, enabled: boolean) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  const success = updateModEnabled(gameDirectory, modName, enabled)
+  return { success, error: success ? undefined : 'Failed to update mod state' }
+})
+
+ipcMain.handle('uninstall-mod', (_event, modName: string) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  // TODO: Delete mod files from HKL directory
+
+  const success = removeInstalledMod(gameDirectory, modName)
+  return { success, error: success ? undefined : 'Failed to remove mod from installed list' }
+})
+
+ipcMain.handle('install-mod', async (_event, modData: { name: string; version: string }) => {
   const gameDirectory = store.get('gameDirectory', '') as string
 
   // Ensure HKL directory exists
@@ -159,6 +267,12 @@ ipcMain.handle('install-mod', async (_event, _modData: any) => {
     // 1. Download mod from GitHub release
     // 2. Extract to HKL directory
     // 3. Verify hash if available
+
+    // Add to installed mods list
+    const success = addInstalledMod(gameDirectory, modData.name, modData.version, true)
+    if (!success) {
+      return { success: false, error: 'Failed to update installed mods list' }
+    }
 
     return { success: true, message: 'Mod installation not yet implemented' }
   } catch (error) {
