@@ -6,6 +6,7 @@ import { Mod } from '../App'
 import { toast } from 'sonner'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
+const shell = (window as any).require?.('electron')?.shell
 
 type TabType = 'mods' | 'packs'
 type FilterType = 'all' | 'enabled' | 'installed'
@@ -487,10 +488,12 @@ export function ModList({
                     <span className="text-muted-foreground">Author:</span>
                     <span className="ml-2 text-foreground">{mod.author}</span>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Version:</span>
-                    <span className="ml-2 text-foreground">{mod.version}</span>
-                  </div>
+                  {mod.type === 'mod' && (
+                    <div>
+                      <span className="text-muted-foreground">Version:</span>
+                      <span className="ml-2 text-foreground">{mod.version}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -535,16 +538,18 @@ export function ModList({
                 {mod.type === 'mod' && (
                   <div className="flex gap-3">
                     {mod.githubUrl && (
-                      <a
-                        href={mod.githubUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
                         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (shell) {
+                            shell.openExternal(mod.githubUrl)
+                          }
+                        }}
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         View on GitHub
-                      </a>
+                      </button>
                     )}
                     {mod.installed && (
                       <button

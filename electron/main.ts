@@ -683,6 +683,23 @@ ipcMain.handle('toggle-mod-enabled', (_event, modName: string, enabled: boolean,
     }
   }
 
+  // Check if this change affects the active pack
+  const packsData = readPacks(gameDirectory)
+  if (packsData.activePack) {
+    const activePack = packsData.Packs[packsData.activePack]
+    if (activePack) {
+      const modInPack = activePack.mods.includes(modName)
+
+      // Clear pack if:
+      // 1. Disabling a mod that's in the pack
+      // 2. Enabling a mod that's NOT in the pack
+      if ((!enabled && modInPack) || (enabled && !modInPack)) {
+        packsData.activePack = null
+        writePacks(gameDirectory, packsData)
+      }
+    }
+  }
+
   const success = updateModEnabled(gameDirectory, modName, enabled)
   return { success, error: success ? undefined : 'Failed to update mod state' }
 })
@@ -693,10 +710,30 @@ ipcMain.handle('batch-toggle-mods', (_event, changes: Array<{modName: string, en
 
   try {
     const data = readInstalledMods(gameDirectory)
+    const packsData = readPacks(gameDirectory)
 
     for (const change of changes) {
       if (data.InstalledMods.Mods[change.modName]) {
         data.InstalledMods.Mods[change.modName].Enabled = change.enabled
+      }
+    }
+
+    // Check if any changes affect the active pack
+    if (packsData.activePack) {
+      const activePack = packsData.Packs[packsData.activePack]
+      if (activePack) {
+        // Clear pack if:
+        // 1. Any mod in the pack is being disabled
+        // 2. Any mod NOT in the pack is being enabled
+        const packViolated = changes.some(c => {
+          const modInPack = activePack.mods.includes(c.modName)
+          return (!c.enabled && modInPack) || (c.enabled && !modInPack)
+        })
+
+        if (packViolated) {
+          packsData.activePack = null
+          writePacks(gameDirectory, packsData)
+        }
       }
     }
 
@@ -721,6 +758,17 @@ ipcMain.handle('uninstall-mod', (_event, modName: string) => {
 
     if (fs.existsSync(modPath)) {
       fs.rmSync(modPath, { recursive: true, force: true })
+    }
+
+    // Check if this mod is in the active pack
+    const packsData = readPacks(gameDirectory)
+    if (packsData.activePack) {
+      const activePack = packsData.Packs[packsData.activePack]
+      if (activePack && activePack.mods.includes(modName)) {
+        // Clear the active pack since one of its mods is being uninstalled
+        packsData.activePack = null
+        writePacks(gameDirectory, packsData)
+      }
     }
 
     // Remove from installed mods list
@@ -940,7 +988,6 @@ function createWindow() {
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)
-    win.webContents.openDevTools()
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }

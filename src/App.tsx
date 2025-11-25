@@ -101,6 +101,64 @@ export default function App() {
     })
   }
 
+  const handleUpdateAll = async () => {
+    if (!ipcRenderer) return
+
+    const modsToUpdate = mods.filter(m => m.type === 'mod' && m.hasUpdate && m.installed)
+
+    if (modsToUpdate.length === 0) {
+      toast.info('No mods to update')
+      return
+    }
+
+    // Show toast confirmation
+    toast.warning(`Update all ${modsToUpdate.length} mods?`, {
+      duration: 10000,
+      action: {
+        label: 'Update',
+        onClick: async () => {
+          setIsInstalling(true)
+          let successCount = 0
+          let failCount = 0
+
+          for (const mod of modsToUpdate) {
+            try {
+              if (!mod.downloadUrl) {
+                failCount++
+                continue
+              }
+
+              const result = await ipcRenderer.invoke('install-mod', {
+                name: mod.name,
+                version: mod.version,
+                downloadUrl: mod.downloadUrl,
+                sha256: mod.sha256,
+              })
+
+              if (result.success) {
+                successCount++
+              } else {
+                failCount++
+              }
+            } catch (error) {
+              failCount++
+            }
+          }
+
+          setIsInstalling(false)
+          await new Promise(resolve => setTimeout(resolve, 100))
+          loadMods()
+
+          if (failCount === 0) {
+            toast.success(`Updated ${successCount} mods`)
+          } else {
+            toast.warning(`Updated ${successCount} mods, ${failCount} failed`)
+          }
+        }
+      }
+    })
+  }
+
   const handleCreatePack = async (name: string, description: string, author: string) => {
     if (!ipcRenderer) return
 
@@ -390,14 +448,26 @@ export default function App() {
                     </>
                   )}
                   {activeTab === 'mods' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!gameDirectory || isInstalling}
-                      onClick={handleDisableAll}
-                    >
-                      Disable All
-                    </Button>
+                    <>
+                      {mods.some(m => m.type === 'mod' && m.hasUpdate && m.installed) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!gameDirectory || isInstalling}
+                          onClick={handleUpdateAll}
+                        >
+                          Update All
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!gameDirectory || isInstalling}
+                        onClick={handleDisableAll}
+                      >
+                        Disable All
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
