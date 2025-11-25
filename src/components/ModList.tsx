@@ -9,7 +9,23 @@ const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 type TabType = 'mods' | 'packs'
 type FilterType = 'all' | 'enabled' | 'installed'
 
-export function ModList({ searchQuery, type, filter, gameDirectory, mods }: { searchQuery: string; type: TabType; filter: FilterType; gameDirectory: string; mods: Mod[] }) {
+export function ModList({
+  searchQuery,
+  type,
+  filter,
+  gameDirectory,
+  mods,
+  onInstallStart,
+  onInstallComplete,
+}: {
+  searchQuery: string
+  type: TabType
+  filter: FilterType
+  gameDirectory: string
+  mods: Mod[]
+  onInstallStart: () => void
+  onInstallComplete: () => void
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [installing, setInstalling] = useState<string | null>(null)
   const hasValidDirectory = !!gameDirectory
@@ -21,6 +37,7 @@ export function ModList({ searchQuery, type, filter, gameDirectory, mods }: { se
     }
 
     setInstalling(mod.id)
+    onInstallStart()
 
     try {
       const result = await ipcRenderer.invoke('install-mod', {
@@ -32,12 +49,14 @@ export function ModList({ searchQuery, type, filter, gameDirectory, mods }: { se
 
       if (result.success) {
         alert(result.message || 'Mod installed successfully!')
-        // TODO: Refresh mod list to show installed state
+        onInstallComplete()
       } else {
         alert(`Installation failed: ${result.error}`)
+        onInstallComplete()
       }
     } catch (error) {
       alert(`Installation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      onInstallComplete()
     } finally {
       setInstalling(null)
     }

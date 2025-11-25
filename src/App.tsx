@@ -36,6 +36,7 @@ export default function App() {
   const [gameDirectory, setGameDirectory] = useState('')
   const [mods, setMods] = useState<Mod[]>([])
   const [hklError, setHklError] = useState<string | null>(null)
+  const [isInstalling, setIsInstalling] = useState(false)
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -77,40 +78,50 @@ export default function App() {
     }
   }, [])
 
+  const loadMods = async () => {
+    if (!ipcRenderer) return
+
+    const xmlContent = await ipcRenderer.invoke('get-modlinks')
+    const installedModsData = await ipcRenderer.invoke('get-installed-mods')
+
+    const modLinks = parseModLinks(xmlContent)
+    const installedMods = installedModsData?.InstalledMods?.Mods || {}
+
+    const parsedMods: Mod[] = modLinks.map((modLink, index) => {
+      const author = modLink.repository
+        ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
+        : 'Unknown'
+
+      // Use the first link for download (if available)
+      const downloadLink = modLink.links && modLink.links.length > 0 ? modLink.links[0] : null
+
+      // Check if mod is installed
+      const isInstalled = modLink.name in installedMods
+      const installedInfo = installedMods[modLink.name]
+
+      return {
+        id: `${index}`,
+        name: modLink.name,
+        description: modLink.description || 'No description available',
+        version: modLink.version,
+        author: author,
+        enabled: isInstalled ? installedInfo.Enabled : false,
+        installed: isInstalled,
+        type: 'mod' as const,
+        githubUrl: modLink.repository || undefined,
+        dependencies: modLink.dependencies || [],
+        integrations: [],
+        hasUpdate: false,
+        downloadUrl: downloadLink?.URL || undefined,
+        sha256: downloadLink?.SHA256 || undefined,
+      }
+    })
+
+    setMods(parsedMods)
+  }
+
   useEffect(() => {
-    if (ipcRenderer) {
-      ipcRenderer.invoke('get-modlinks').then((xmlContent: string) => {
-        const modLinks = parseModLinks(xmlContent)
-
-        const parsedMods: Mod[] = modLinks.map((modLink, index) => {
-          const author = modLink.repository
-            ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
-            : 'Unknown'
-
-          // Use the first link for download (if available)
-          const downloadLink = modLink.links && modLink.links.length > 0 ? modLink.links[0] : null
-
-          return {
-            id: `${index}`,
-            name: modLink.name,
-            description: modLink.description || 'No description available',
-            version: modLink.version,
-            author: author,
-            enabled: false,
-            installed: false,
-            type: 'mod' as const,
-            githubUrl: modLink.repository || undefined,
-            dependencies: modLink.dependencies || [],
-            integrations: [],
-            hasUpdate: false,
-            downloadUrl: downloadLink?.URL || undefined,
-            sha256: downloadLink?.SHA256 || undefined,
-          }
-        })
-
-        setMods(parsedMods)
-      })
-    }
+    loadMods()
   }, [])
 
   return (
@@ -164,7 +175,7 @@ export default function App() {
           <div className="p-3 border-t border-border/40">
             <Button
               className="w-full bg-accent text-accent-foreground hover:bg-accent/80"
-              disabled={!gameDirectory}
+              disabled={!gameDirectory || isInstalling}
             >
               <Play className="h-4 w-4 mr-2" />
               Launch Game
@@ -231,7 +242,18 @@ export default function App() {
                     <span className="text-sm text-destructive">{hklError}</span>
                   </div>
                 )}
-                <ModList searchQuery={searchQuery} type={activeTab} filter={filter} gameDirectory={gameDirectory} mods={mods} />
+                <ModList
+                  searchQuery={searchQuery}
+                  type={activeTab}
+                  filter={filter}
+                  gameDirectory={gameDirectory}
+                  mods={mods}
+                  onInstallStart={() => setIsInstalling(true)}
+                  onInstallComplete={() => {
+                    setIsInstalling(false)
+                    loadMods()
+                  }}
+                />
               </div>
             )}
           </div>
