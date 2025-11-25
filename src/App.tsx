@@ -33,15 +33,38 @@ export default function App() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [gameDirectory, setGameDirectory] = useState('')
   const [mods, setMods] = useState<Mod[]>([])
+  const [hklError, setHklError] = useState<string | null>(null)
 
   useEffect(() => {
     if (ipcRenderer) {
       ipcRenderer.invoke('get-game-directory').then((dir: string) => {
         setGameDirectory(dir)
+
+        // Check HKL directory if game directory is set
+        if (dir) {
+          ipcRenderer.invoke('ensure-hkl-directory').then((result: { success: boolean; error?: string }) => {
+            if (!result.success) {
+              setHklError(result.error || 'Failed to create HKL directory')
+            } else {
+              setHklError(null)
+            }
+          })
+        }
       })
 
       const handleDirectoryUpdate = (_event: any, dir: string) => {
         setGameDirectory(dir)
+
+        // Check HKL directory when directory is updated
+        if (dir) {
+          ipcRenderer.invoke('ensure-hkl-directory').then((result: { success: boolean; error?: string }) => {
+            if (!result.success) {
+              setHklError(result.error || 'Failed to create HKL directory')
+            } else {
+              setHklError(null)
+            }
+          })
+        }
       }
 
       ipcRenderer.on('game-directory-updated', handleDirectoryUpdate)
@@ -193,6 +216,12 @@ export default function App() {
                   <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
                     <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
                     <span className="text-sm text-destructive">No game directory set. Go to Settings to select your Hollow Knight directory.</span>
+                  </div>
+                )}
+                {hklError && (
+                  <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                    <span className="text-sm text-destructive">{hklError}</span>
                   </div>
                 )}
                 <ModList searchQuery={searchQuery} type={activeTab} filter={filter} gameDirectory={gameDirectory} mods={mods} />
