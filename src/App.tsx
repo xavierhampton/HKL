@@ -38,6 +38,19 @@ export default function App() {
   const [hklError, setHklError] = useState<string | null>(null)
   const [isInstalling, setIsInstalling] = useState(false)
 
+  const handleLaunchGame = async () => {
+    if (ipcRenderer) {
+      try {
+        const result = await ipcRenderer.invoke('launch-game')
+        if (!result.success) {
+          alert(`Failed to launch game: ${result.error}`)
+        }
+      } catch (error) {
+        alert(`Failed to launch game: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
+    }
+  }
+
   useEffect(() => {
     if (ipcRenderer) {
       ipcRenderer.invoke('get-game-directory').then((dir: string) => {
@@ -179,6 +192,7 @@ export default function App() {
             <Button
               className="w-full bg-accent text-accent-foreground hover:bg-accent/80"
               disabled={!gameDirectory || isInstalling}
+              onClick={handleLaunchGame}
             >
               <Play className="h-4 w-4 mr-2" />
               Launch Game

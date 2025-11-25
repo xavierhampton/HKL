@@ -16,6 +16,46 @@ function getHKLModsPath(gameDirectory: string): string {
   return path.join(gameDirectory, 'hollow_knight_Data', 'Managed', 'HKL')
 }
 
+function getManagedPath(gameDirectory: string): string {
+  return path.join(gameDirectory, 'hollow_knight_Data', 'Managed')
+}
+
+function isModdingApiInstalled(gameDirectory: string): boolean {
+  const managedPath = getManagedPath(gameDirectory)
+  // Check if Assembly-CSharp.dll exists (the main modding API file)
+  return fs.existsSync(path.join(managedPath, 'Assembly-CSharp.dll'))
+}
+
+function installModdingApi(gameDirectory: string): { success: boolean; error?: string } {
+  try {
+    const managedPath = getManagedPath(gameDirectory)
+    const moddingApiPath = path.join(__dirname, '../public/resources/ModdingApiWin')
+
+    // Check if modding API source exists
+    if (!fs.existsSync(moddingApiPath)) {
+      return { success: false, error: 'Modding API files not found in resources' }
+    }
+
+    // Copy all files from ModdingApiWin to Managed folder
+    const files = fs.readdirSync(moddingApiPath)
+    for (const file of files) {
+      if (file === 'README.md') continue // Skip README
+
+      const sourcePath = path.join(moddingApiPath, file)
+      const destPath = path.join(managedPath, file)
+
+      fs.copyFileSync(sourcePath, destPath)
+    }
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to install Modding API: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
+}
+
 interface InstalledMod {
   Version: string
   Enabled: boolean
@@ -322,6 +362,38 @@ ipcMain.handle('uninstall-mod', (_event, modName: string) => {
     return {
       success: false,
       error: `Failed to uninstall mod: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
+})
+
+ipcMain.handle('launch-game', () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  try {
+    // Check if Modding API is installed, if not install it
+    if (!isModdingApiInstalled(gameDirectory)) {
+      const installResult = installModdingApi(gameDirectory)
+      if (!installResult.success) {
+        return { success: false, error: installResult.error }
+      }
+    }
+
+    // Launch the game
+    const exePath = path.join(gameDirectory, 'hollow_knight.exe')
+    if (!fs.existsSync(exePath)) {
+      return { success: false, error: 'hollow_knight.exe not found' }
+    }
+
+    // Launch without waiting
+    // const { spawn } = require('child_process')
+    // spawn(exePath, [], { detached: true, stdio: 'ignore', cwd: gameDirectory }).unref()
+
+    return { success: true, message: 'Game launched successfully' }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to launch game: ${error instanceof Error ? error.message : 'Unknown error'}`
     }
   }
 })

@@ -121,6 +121,31 @@ export function ModList({
     }
   }
 
+  const handleUninstall = async (mod: Mod) => {
+    if (!confirm(`Uninstall ${mod.name}?`)) {
+      return
+    }
+
+    setInstalling(mod.id)
+    onInstallStart()
+
+    try {
+      const result = await ipcRenderer.invoke('uninstall-mod', mod.name)
+      if (result.success) {
+        alert(`${mod.name} uninstalled successfully!`)
+        onInstallComplete()
+      } else {
+        alert(`Uninstall failed: ${result.error}`)
+        onInstallComplete()
+      }
+    } catch (error) {
+      alert(`Uninstall failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      onInstallComplete()
+    } finally {
+      setInstalling(null)
+    }
+  }
+
   const filteredMods = mods
     .filter((mod) => {
       if (type === 'mods') return mod.type === 'mod'
@@ -302,11 +327,12 @@ export function ModList({
                         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={(e) => {
                           e.stopPropagation()
+                          handleUninstall(mod)
                         }}
-                        disabled={!hasValidDirectory}
+                        disabled={!hasValidDirectory || installing === mod.id}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                        Uninstall Mod
+                        {installing === mod.id ? 'Uninstalling...' : 'Uninstall Mod'}
                       </button>
                     )}
                   </div>
