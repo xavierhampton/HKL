@@ -35,6 +35,8 @@ export function ModList({
     try {
       const result = await ipcRenderer.invoke('toggle-mod-enabled', mod.name, enabled, mod.dependencies)
       if (result.success) {
+        // Small delay to ensure file system writes complete
+        await new Promise(resolve => setTimeout(resolve, 100))
         onInstallComplete() // Refresh mod list
       } else {
         toast.error(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${result.error}`)
