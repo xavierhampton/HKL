@@ -3,6 +3,7 @@ import { Button } from './ui/button'
 import { Switch } from './ui/switch'
 import { Trash2, ExternalLink } from 'lucide-react'
 import { Mod } from '../App'
+import { toast } from 'sonner'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
@@ -36,16 +37,16 @@ export function ModList({
       if (result.success) {
         onInstallComplete() // Refresh mod list
       } else {
-        alert(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${result.error}`)
+        toast.error(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${result.error}`)
       }
     } catch (error) {
-      alert(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   const handleInstall = async (mod: Mod) => {
     if (!mod.downloadUrl) {
-      alert('No download URL available for this mod')
+      toast.error('No download URL available for this mod')
       return
     }
 
@@ -78,14 +79,14 @@ export function ModList({
       })
 
       if (result.success) {
-        alert(result.message || 'Mod installed successfully!')
+        toast.success(result.message || 'Mod installed successfully!')
         onInstallComplete()
       } else {
-        alert(`Installation failed: ${result.error}`)
+        toast.error(`Installation failed: ${result.error}`)
         onInstallComplete()
       }
     } catch (error) {
-      alert(`Installation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error(`Installation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       onInstallComplete()
     } finally {
       setInstalling(null)
@@ -94,7 +95,7 @@ export function ModList({
 
   const handleUpdate = async (mod: Mod) => {
     if (!mod.downloadUrl) {
-      alert('No download URL available for this mod')
+      toast.error('No download URL available for this mod')
       return
     }
 
@@ -109,7 +110,7 @@ export function ModList({
       // Uninstall current version
       const uninstallResult = await ipcRenderer.invoke('uninstall-mod', mod.name)
       if (!uninstallResult.success) {
-        alert(`Failed to uninstall old version: ${uninstallResult.error}`)
+        toast.error(`Failed to uninstall old version: ${uninstallResult.error}`)
         onInstallComplete()
         setInstalling(null)
         return
@@ -141,14 +142,14 @@ export function ModList({
       })
 
       if (installResult.success) {
-        alert(`${mod.name} updated successfully!`)
+        toast.success(`${mod.name} updated successfully!`)
         onInstallComplete()
       } else {
-        alert(`Update failed: ${installResult.error}`)
+        toast.error(`Update failed: ${installResult.error}`)
         onInstallComplete()
       }
     } catch (error) {
-      alert(`Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error(`Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       onInstallComplete()
     } finally {
       setInstalling(null)
@@ -166,14 +167,14 @@ export function ModList({
     try {
       const result = await ipcRenderer.invoke('uninstall-mod', mod.name)
       if (result.success) {
-        alert(`${mod.name} uninstalled successfully!`)
+        toast.success(`${mod.name} uninstalled successfully!`)
         onInstallComplete()
       } else {
-        alert(`Uninstall failed: ${result.error}`)
+        toast.error(`Uninstall failed: ${result.error}`)
         onInstallComplete()
       }
     } catch (error) {
-      alert(`Uninstall failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error(`Uninstall failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       onInstallComplete()
     } finally {
       setInstalling(null)

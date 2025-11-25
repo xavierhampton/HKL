@@ -6,6 +6,7 @@ import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
 import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle } from 'lucide-react'
 import { parseModLinks } from './utils/modLinksParser'
+import { Toaster, toast } from 'sonner'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
@@ -43,10 +44,12 @@ export default function App() {
       try {
         const result = await ipcRenderer.invoke('launch-game')
         if (!result.success) {
-          alert(`Failed to launch game: ${result.error}`)
+          toast.error(`Failed to launch game: ${result.error}`)
+        } else {
+          toast.success('Game launched successfully')
         }
       } catch (error) {
-        alert(`Failed to launch game: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        toast.error(`Failed to launch game: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     }
   }
@@ -144,6 +147,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
+      <Toaster position="bottom-right" />
       <TitleBar />
 
       <div className="flex-1 flex overflow-hidden">
