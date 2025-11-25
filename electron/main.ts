@@ -633,6 +633,11 @@ ipcMain.on('window-close', (event) => {
   win?.close()
 })
 
+ipcMain.on('trigger-directory-update', (event, dir: string) => {
+  // Broadcast the directory update to trigger mod list refresh
+  event.sender.send('game-directory-updated', dir)
+})
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,

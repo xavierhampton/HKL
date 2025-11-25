@@ -70,6 +70,12 @@ export function Settings() {
 
           setIsUninstalling(false)
 
+          // Trigger a directory update event to refresh the mod list
+          if (ipcRenderer) {
+            const currentDir = await ipcRenderer.invoke('get-game-directory')
+            ipcRenderer.send('trigger-directory-update', currentDir)
+          }
+
           if (failCount === 0) {
             toast.success(`Uninstalled ${successCount} mods`)
           } else {
