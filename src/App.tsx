@@ -54,6 +54,96 @@ export default function App() {
     }
   }
 
+  const handleDisableAll = async () => {
+    if (!ipcRenderer) return
+
+    const enabledMods = mods.filter(m =>
+      m.type === (activeTab === 'mods' ? 'mod' : 'modpack') &&
+      m.enabled
+    )
+
+    if (enabledMods.length === 0) {
+      toast.info('No enabled mods to disable')
+      return
+    }
+
+    if (!confirm(`Disable all ${enabledMods.length} enabled mods?`)) {
+      return
+    }
+
+    setIsInstalling(true)
+    let successCount = 0
+    let failCount = 0
+
+    for (const mod of enabledMods) {
+      try {
+        const result = await ipcRenderer.invoke('toggle-mod-enabled', mod.name, false, [])
+        if (result.success) {
+          successCount++
+        } else {
+          failCount++
+        }
+      } catch (error) {
+        failCount++
+      }
+    }
+
+    setIsInstalling(false)
+    await new Promise(resolve => setTimeout(resolve, 100))
+    loadMods()
+
+    if (failCount === 0) {
+      toast.success(`Disabled ${successCount} mods`)
+    } else {
+      toast.warning(`Disabled ${successCount} mods, ${failCount} failed`)
+    }
+  }
+
+  const handleUninstallAll = async () => {
+    if (!ipcRenderer) return
+
+    const installedMods = mods.filter(m =>
+      m.type === (activeTab === 'mods' ? 'mod' : 'modpack') &&
+      m.installed
+    )
+
+    if (installedMods.length === 0) {
+      toast.info('No installed mods to uninstall')
+      return
+    }
+
+    if (!confirm(`Uninstall all ${installedMods.length} installed mods? This cannot be undone.`)) {
+      return
+    }
+
+    setIsInstalling(true)
+    let successCount = 0
+    let failCount = 0
+
+    for (const mod of installedMods) {
+      try {
+        const result = await ipcRenderer.invoke('uninstall-mod', mod.name)
+        if (result.success) {
+          successCount++
+        } else {
+          failCount++
+        }
+      } catch (error) {
+        failCount++
+      }
+    }
+
+    setIsInstalling(false)
+    await new Promise(resolve => setTimeout(resolve, 100))
+    loadMods()
+
+    if (failCount === 0) {
+      toast.success(`Uninstalled ${successCount} mods`)
+    } else {
+      toast.warning(`Uninstalled ${successCount} mods, ${failCount} failed`)
+    }
+  }
+
   useEffect(() => {
     if (ipcRenderer) {
       ipcRenderer.invoke('get-game-directory').then((dir: string) => {
@@ -236,8 +326,21 @@ export default function App() {
                       Create Pack
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" disabled={!gameDirectory}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!gameDirectory || isInstalling}
+                    onClick={handleDisableAll}
+                  >
                     Disable All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!gameDirectory || isInstalling}
+                    onClick={handleUninstallAll}
+                  >
+                    Uninstall All
                   </Button>
                 </div>
               </div>
