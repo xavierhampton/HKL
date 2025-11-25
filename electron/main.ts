@@ -79,6 +79,51 @@ function getInstalledModsPath(gameDirectory: string): string {
   return path.join(getHKLModsPath(gameDirectory), 'installedMods.json')
 }
 
+function syncInstalledMods(gameDirectory: string): void {
+  try {
+    const hklPath = getHKLModsPath(gameDirectory)
+    const installedModsData = readInstalledMods(gameDirectory)
+    const trackedMods = installedModsData.InstalledMods.Mods
+
+    // Get all directories in HKL folder
+    if (!fs.existsSync(hklPath)) return
+
+    const entries = fs.readdirSync(hklPath, { withFileTypes: true })
+    const modFolders = entries.filter(e => e.isDirectory()).map(e => e.name)
+
+    let hasChanges = false
+
+    // Add any mods in HKL folder that aren't tracked
+    for (const modName of modFolders) {
+      if (!trackedMods[modName]) {
+        // Add to tracking with version "Unknown" and enabled by default
+        trackedMods[modName] = {
+          Version: 'Unknown',
+          Enabled: true
+        }
+        hasChanges = true
+        console.log(`Detected untracked mod: ${modName}`)
+      }
+    }
+
+    // Remove any tracked mods that don't have folders
+    for (const modName of Object.keys(trackedMods)) {
+      if (!modFolders.includes(modName)) {
+        delete trackedMods[modName]
+        hasChanges = true
+        console.log(`Removed missing mod from tracking: ${modName}`)
+      }
+    }
+
+    if (hasChanges) {
+      writeInstalledMods(gameDirectory, installedModsData)
+      console.log('Synced installedMods.json with HKL folder contents')
+    }
+  } catch (error) {
+    console.error('Failed to sync installed mods:', error)
+  }
+}
+
 function ensureHKLDirectory(gameDirectory: string): { success: boolean; path?: string; error?: string } {
   if (!gameDirectory) {
     return { success: false, error: 'No game directory set' }
@@ -101,6 +146,9 @@ function ensureHKLDirectory(gameDirectory: string): { success: boolean; path?: s
       }
       fs.writeFileSync(installedModsPath, JSON.stringify(initialData, null, 2))
     }
+
+    // Sync installed mods with actual folder contents
+    syncInstalledMods(gameDirectory)
 
     return { success: true, path: hklPath }
   } catch (error) {
