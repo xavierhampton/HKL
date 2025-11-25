@@ -443,8 +443,8 @@ ipcMain.handle('launch-game', () => {
     }
 
     // Launch without waiting
-    // const { spawn } = require('child_process')
-    // spawn(exePath, [], { detached: true, stdio: 'ignore', cwd: gameDirectory }).unref()
+    const { spawn } = require('child_process')
+    spawn(exePath, [], { detached: true, stdio: 'ignore', cwd: gameDirectory }).unref()
 
     return { success: true, message: 'Game launched successfully' }
   } catch (error) {
