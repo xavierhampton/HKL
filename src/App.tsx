@@ -25,6 +25,8 @@ export interface Mod {
   dependencies?: string[]
   integrations?: string[]
   hasUpdate?: boolean
+  downloadUrl?: string
+  sha256?: string
 }
 
 export default function App() {
@@ -85,6 +87,9 @@ export default function App() {
             ? modLink.repository.split('/').slice(-2, -1)[0] || 'Unknown'
             : 'Unknown'
 
+          // Use the first link for download (if available)
+          const downloadLink = modLink.links && modLink.links.length > 0 ? modLink.links[0] : null
+
           return {
             id: `${index}`,
             name: modLink.name,
@@ -98,6 +103,8 @@ export default function App() {
             dependencies: modLink.dependencies || [],
             integrations: [],
             hasUpdate: false,
+            downloadUrl: downloadLink?.URL || undefined,
+            sha256: downloadLink?.SHA256 || undefined,
           }
         })
 

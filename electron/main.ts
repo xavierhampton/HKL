@@ -3,6 +3,8 @@ import path from 'path'
 import Store from 'electron-store'
 import fs from 'fs'
 import https from 'https'
+import crypto from 'crypto'
+import AdmZip from 'adm-zip'
 
 const store = new Store()
 
@@ -147,6 +149,63 @@ async function fetchModLinks(): Promise<string> {
   })
 }
 
+async function downloadFile(url: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    https.get(url, (response) => {
+      // Handle redirects
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        if (response.headers.location) {
+          return downloadFile(response.headers.location).then(resolve).catch(reject)
+        }
+      }
+
+      if (response.statusCode !== 200) {
+        reject(new Error(`HTTP ${response.statusCode}`))
+        return
+      }
+
+      const chunks: Buffer[] = []
+      response.on('data', (chunk) => {
+        chunks.push(chunk)
+      })
+
+      response.on('end', () => {
+        resolve(Buffer.concat(chunks))
+      })
+
+      response.on('error', (error) => {
+        reject(error)
+      })
+    }).on('error', (error) => {
+      reject(error)
+    })
+  })
+}
+
+function calculateSHA256(buffer: Buffer): string {
+  return crypto.createHash('sha256').update(buffer).digest('hex').toUpperCase()
+}
+
+function extractZipToHKL(zipBuffer: Buffer, gameDirectory: string, modName: string): boolean {
+  try {
+    const hklPath = getHKLModsPath(gameDirectory)
+    const modPath = path.join(hklPath, modName)
+
+    // Create mod directory if it doesn't exist
+    if (!fs.existsSync(modPath)) {
+      fs.mkdirSync(modPath, { recursive: true })
+    }
+
+    const zip = new AdmZip(zipBuffer)
+    zip.extractAllTo(modPath, true)
+
+    return true
+  } catch (error) {
+    console.error('Failed to extract zip:', error)
+    return false
+  }
+}
+
 async function updateModLinksCache(): Promise<{ success: boolean; updated: boolean; error?: string }> {
   const lastUpdate = store.get('modLinksLastUpdate', 0) as number
   const now = Date.now()
@@ -253,7 +312,7 @@ ipcMain.handle('uninstall-mod', (_event, modName: string) => {
   return { success, error: success ? undefined : 'Failed to remove mod from installed list' }
 })
 
-ipcMain.handle('install-mod', async (_event, modData: { name: string; version: string }) => {
+ipcMain.handle('install-mod', async (_event, modData: { name: string; version: string; downloadUrl: string; sha256?: string }) => {
   const gameDirectory = store.get('gameDirectory', '') as string
 
   // Ensure HKL directory exists
@@ -263,10 +322,27 @@ ipcMain.handle('install-mod', async (_event, modData: { name: string; version: s
   }
 
   try {
-    // TODO: Implement mod installation logic
-    // 1. Download mod from GitHub release
-    // 2. Extract to HKL directory
-    // 3. Verify hash if available
+    // Download mod from URL
+    console.log(`Downloading mod: ${modData.name} from ${modData.downloadUrl}`)
+    const zipBuffer = await downloadFile(modData.downloadUrl)
+
+    // Verify hash if provided
+    if (modData.sha256) {
+      const calculatedHash = calculateSHA256(zipBuffer)
+      if (calculatedHash !== modData.sha256.toUpperCase()) {
+        return {
+          success: false,
+          error: `Hash verification failed. Expected: ${modData.sha256}, Got: ${calculatedHash}`
+        }
+      }
+      console.log(`Hash verified: ${calculatedHash}`)
+    }
+
+    // Extract to HKL directory
+    const extracted = extractZipToHKL(zipBuffer, gameDirectory, modData.name)
+    if (!extracted) {
+      return { success: false, error: 'Failed to extract mod files' }
+    }
 
     // Add to installed mods list
     const success = addInstalledMod(gameDirectory, modData.name, modData.version, true)
@@ -274,7 +350,8 @@ ipcMain.handle('install-mod', async (_event, modData: { name: string; version: s
       return { success: false, error: 'Failed to update installed mods list' }
     }
 
-    return { success: true, message: 'Mod installation not yet implemented' }
+    console.log(`Successfully installed mod: ${modData.name}`)
+    return { success: true, message: `${modData.name} installed successfully` }
   } catch (error) {
     return {
       success: false,

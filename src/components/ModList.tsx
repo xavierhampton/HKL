@@ -4,12 +4,44 @@ import { Switch } from './ui/switch'
 import { Trash2, ExternalLink } from 'lucide-react'
 import { Mod } from '../App'
 
+const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
+
 type TabType = 'mods' | 'packs'
 type FilterType = 'all' | 'enabled' | 'installed'
 
 export function ModList({ searchQuery, type, filter, gameDirectory, mods }: { searchQuery: string; type: TabType; filter: FilterType; gameDirectory: string; mods: Mod[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [installing, setInstalling] = useState<string | null>(null)
   const hasValidDirectory = !!gameDirectory
+
+  const handleInstall = async (mod: Mod) => {
+    if (!mod.downloadUrl) {
+      alert('No download URL available for this mod')
+      return
+    }
+
+    setInstalling(mod.id)
+
+    try {
+      const result = await ipcRenderer.invoke('install-mod', {
+        name: mod.name,
+        version: mod.version,
+        downloadUrl: mod.downloadUrl,
+        sha256: mod.sha256
+      })
+
+      if (result.success) {
+        alert(result.message || 'Mod installed successfully!')
+        // TODO: Refresh mod list to show installed state
+      } else {
+        alert(`Installation failed: ${result.error}`)
+      }
+    } catch (error) {
+      alert(`Installation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setInstalling(null)
+    }
+  }
 
   const filteredMods = mods
     .filter((mod) => {
@@ -80,10 +112,11 @@ export function ModList({ searchQuery, type, filter, gameDirectory, mods }: { se
                   className="flex-shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
+                    handleInstall(mod)
                   }}
-                  disabled={!hasValidDirectory}
+                  disabled={!hasValidDirectory || installing === mod.id}
                 >
-                  Install
+                  {installing === mod.id ? 'Installing...' : 'Install'}
                 </Button>
               )}
 
