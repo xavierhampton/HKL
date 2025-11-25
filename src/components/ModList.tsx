@@ -101,10 +101,19 @@ export function ModList({
       return
     }
 
-    if (!confirm(`Update ${mod.name}? This will uninstall the current version and install the new one.`)) {
-      return
-    }
+    // Show toast confirmation
+    toast.warning(`Update ${mod.name}? This will uninstall the current version and install the new one.`, {
+      duration: 10000,
+      action: {
+        label: 'Update',
+        onClick: async () => {
+          await performUpdate(mod)
+        }
+      }
+    })
+  }
 
+  const performUpdate = async (mod: Mod) => {
     setInstalling(mod.id)
     onInstallStart()
 
@@ -159,10 +168,19 @@ export function ModList({
   }
 
   const handleUninstall = async (mod: Mod) => {
-    if (!confirm(`Uninstall ${mod.name}?`)) {
-      return
-    }
+    // Show toast confirmation
+    toast.warning(`Uninstall ${mod.name}?`, {
+      duration: 10000,
+      action: {
+        label: 'Uninstall',
+        onClick: async () => {
+          await performUninstall(mod)
+        }
+      }
+    })
+  }
 
+  const performUninstall = async (mod: Mod) => {
     setInstalling(mod.id)
     onInstallStart()
 
