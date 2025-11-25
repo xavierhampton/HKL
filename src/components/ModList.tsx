@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from './ui/button'
 import { Switch } from './ui/switch'
-import { Trash2, ExternalLink } from 'lucide-react'
+import { Trash2, ExternalLink, Share2 } from 'lucide-react'
 import { Mod } from '../App'
 import { toast } from 'sonner'
 
@@ -32,6 +32,17 @@ export function ModList({
   const hasValidDirectory = !!gameDirectory
 
   const handleToggleEnabled = async (mod: Mod, enabled: boolean) => {
+    // Handle modpack enabling
+    if (mod.type === 'modpack') {
+      if (enabled) {
+        await handleInstallPack(mod)
+      } else {
+        await handleDisablePack(mod)
+      }
+      return
+    }
+
+    // Handle regular mod enabling
     try {
       const result = await ipcRenderer.invoke('toggle-mod-enabled', mod.name, enabled, mod.dependencies)
       if (result.success) {
@@ -43,6 +54,152 @@ export function ModList({
       }
     } catch (error) {
       toast.error(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleInstallPack = async (pack: Mod) => {
+    if (!pack.mods || pack.mods.length === 0) return
+
+    setInstalling(pack.id)
+    onInstallStart()
+
+    try {
+      // Find mods that need to be installed
+      const modsToInstall = pack.mods.filter(modName => {
+        const modData = mods.find(m => m.name === modName && m.type === 'mod')
+        return modData && !modData.installed
+      })
+
+      // Show loading toast
+      if (modsToInstall.length > 0) {
+        toast.loading(`Installing ${modsToInstall.length} mods for pack "${pack.name}"...`, { id: pack.id })
+      }
+
+      // Install missing mods
+      for (const modName of modsToInstall) {
+        const modData = mods.find(m => m.name === modName && m.type === 'mod')
+        if (modData && modData.downloadUrl) {
+          const dependencies = modData.dependencies && modData.dependencies.length > 0
+            ? modData.dependencies.map(depName => {
+                const depMod = mods.find(m => m.name === depName)
+                if (!depMod || !depMod.downloadUrl) return null
+                return {
+                  name: depMod.name,
+                  version: depMod.version,
+                  downloadUrl: depMod.downloadUrl,
+                  sha256: depMod.sha256
+                }
+              }).filter(d => d !== null) as Array<{ name: string; version: string; downloadUrl: string; sha256?: string }>
+            : []
+
+          const result = await ipcRenderer.invoke('install-mod', {
+            name: modData.name,
+            version: modData.version,
+            downloadUrl: modData.downloadUrl,
+            sha256: modData.sha256,
+            dependencies: dependencies
+          })
+
+          if (!result.success) {
+            toast.error(`Failed to install ${modData.name}: ${result.error}`)
+            setInstalling(null)
+            onInstallComplete()
+            return
+          }
+        }
+      }
+
+      // Disable ALL other mods (both regular mods and other packs)
+      const allEnabledMods = mods.filter(m => m.enabled && m.name !== pack.name)
+      for (const mod of allEnabledMods) {
+        if (mod.type === 'modpack' && mod.mods) {
+          // Disable all mods in the pack
+          for (const modName of mod.mods) {
+            await ipcRenderer.invoke('toggle-mod-enabled', modName, false, [])
+          }
+        } else if (mod.type === 'mod') {
+          // Disable regular mod
+          await ipcRenderer.invoke('toggle-mod-enabled', mod.name, false, [])
+        }
+      }
+
+      // Enable all mods in the pack
+      for (const modName of pack.mods) {
+        await ipcRenderer.invoke('toggle-mod-enabled', modName, true, [])
+      }
+
+      // Set this pack as the active pack
+      await ipcRenderer.invoke('set-active-pack', pack.name)
+
+      // Dismiss loading toast and show success
+      toast.dismiss(pack.id)
+      toast.success(`Pack "${pack.name}" enabled with ${pack.mods.length} mods`)
+      onInstallComplete()
+    } catch (error) {
+      // Dismiss loading toast and show error
+      toast.dismiss(pack.id)
+      toast.error(`Failed to enable pack: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      onInstallComplete()
+    } finally {
+      setInstalling(null)
+    }
+  }
+
+  const handleDisablePack = async (pack: Mod) => {
+    if (!pack.mods || pack.mods.length === 0) return
+
+    try {
+      // Disable all mods in the pack
+      for (const modName of pack.mods) {
+        await ipcRenderer.invoke('toggle-mod-enabled', modName, false, [])
+      }
+
+      // Clear the active pack
+      await ipcRenderer.invoke('set-active-pack', null)
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+      toast.success(`Pack "${pack.name}" disabled`)
+      onInstallComplete()
+    } catch (error) {
+      toast.error(`Failed to disable pack: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      onInstallComplete()
+    }
+  }
+
+  const handleDeletePack = async (pack: Mod) => {
+    toast.warning(`Delete pack "${pack.name}"?`, {
+      duration: 10000,
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const result = await ipcRenderer.invoke('delete-pack', pack.name)
+            if (result.success) {
+              toast.success(`Pack "${pack.name}" deleted`)
+              onInstallComplete()
+            } else {
+              toast.error(`Failed to delete pack: ${result.error}`)
+            }
+          } catch (error) {
+            toast.error(`Failed to delete pack: ${error instanceof Error ? error.message : 'Unknown error'}`)
+          }
+        }
+      }
+    })
+  }
+
+  const handleExportPack = async (pack: Mod) => {
+    try {
+      const result = await ipcRenderer.invoke('export-pack', pack.name)
+      if (result.success) {
+        // Copy to clipboard
+        await navigator.clipboard.writeText(result.code)
+        toast.success(`Pack code copied to clipboard!`)
+      } else {
+        toast.error(`Failed to export pack: ${result.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to export pack: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -237,11 +394,12 @@ export function ModList({
                 className="flex-shrink-0"
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (mod.installed) {
+                  // Allow enabling packs even if not all mods are installed (will auto-install)
+                  if (mod.type === 'modpack' || mod.installed) {
                     handleToggleEnabled(mod, !mod.enabled)
                   }
                 }}
-                disabled={!hasValidDirectory || !mod.installed}
+                disabled={!hasValidDirectory || (mod.type === 'mod' && !mod.installed) || installing === mod.id}
               />
 
               <div className="flex-1 min-w-0">
@@ -250,22 +408,39 @@ export function ModList({
                   <span className="text-xs text-muted-foreground flex-shrink-0">{mod.version}</span>
                 </div>
                 <p className="text-sm text-muted-foreground truncate">
-                  {mod.description.length > 60 ? `${mod.description.substring(0, 60)}...` : mod.description}
+                  {installing === mod.id && mod.type === 'modpack'
+                    ? 'Installing mods...'
+                    : mod.description.length > 60 ? `${mod.description.substring(0, 60)}...` : mod.description}
                 </p>
               </div>
 
               {mod.type === 'modpack' && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-shrink-0 h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                  }}
-                  disabled={!hasValidDirectory}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleExportPack(mod)
+                    }}
+                    disabled={!hasValidDirectory}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeletePack(mod)
+                    }}
+                    disabled={!hasValidDirectory}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
 
               {mod.type === 'mod' && !mod.installed && (

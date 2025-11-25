@@ -7,6 +7,8 @@ import { Button } from './components/ui/button'
 import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle } from 'lucide-react'
 import { parseModLinks } from './utils/modLinksParser'
 import { Toaster, toast } from 'sonner'
+import { CreatePackDialog } from './components/CreatePackDialog'
+import { ImportPackDialog } from './components/ImportPackDialog'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
@@ -28,6 +30,7 @@ export interface Mod {
   hasUpdate?: boolean
   downloadUrl?: string
   sha256?: string
+  mods?: string[]
 }
 
 export default function App() {
@@ -38,6 +41,8 @@ export default function App() {
   const [mods, setMods] = useState<Mod[]>([])
   const [hklError, setHklError] = useState<string | null>(null)
   const [isInstalling, setIsInstalling] = useState(false)
+  const [showCreatePackDialog, setShowCreatePackDialog] = useState(false)
+  const [showImportPackDialog, setShowImportPackDialog] = useState(false)
 
   const handleLaunchGame = async () => {
     if (ipcRenderer) {
@@ -104,6 +109,54 @@ export default function App() {
     })
   }
 
+  const handleCreatePack = async (name: string, description: string, author: string) => {
+    if (!ipcRenderer) return
+
+    const enabledMods = mods
+      .filter(m => m.type === 'mod' && m.enabled)
+      .map(m => m.name)
+
+    if (enabledMods.length === 0) {
+      toast.error('No enabled mods to create a pack from')
+      return
+    }
+
+    try {
+      const result = await ipcRenderer.invoke('create-pack', {
+        name,
+        description,
+        author,
+        mods: enabledMods
+      })
+
+      if (result.success) {
+        toast.success(`Pack "${name}" created with ${enabledMods.length} mods`)
+        loadMods()
+      } else {
+        toast.error(`Failed to create pack: ${result.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to create pack: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleImportPack = async (code: string) => {
+    if (!ipcRenderer) return
+
+    try {
+      const result = await ipcRenderer.invoke('import-pack', code)
+
+      if (result.success) {
+        toast.success(`Pack "${result.packName}" imported successfully!`)
+        loadMods()
+      } else {
+        toast.error(`Failed to import pack: ${result.error}`)
+      }
+    } catch (error) {
+      toast.error(`Failed to import pack: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   useEffect(() => {
     if (ipcRenderer) {
       ipcRenderer.invoke('get-game-directory').then((dir: string) => {
@@ -155,9 +208,12 @@ export default function App() {
 
     const xmlContent = await ipcRenderer.invoke('get-modlinks')
     const installedModsData = await ipcRenderer.invoke('get-installed-mods')
+    const packsData = await ipcRenderer.invoke('get-packs')
 
     const modLinks = parseModLinks(xmlContent)
     const installedMods = installedModsData?.InstalledMods?.Mods || {}
+    const packs = packsData?.Packs || {}
+    const activePack = packsData?.activePack || null
 
     const parsedMods: Mod[] = modLinks.map((modLink, index) => {
       const author = modLink.repository
@@ -171,11 +227,14 @@ export default function App() {
       const isInstalled = modLink.name in installedMods
       const installedInfo = installedMods[modLink.name]
 
-      // Check for version mismatch (update available)
-      const hasUpdate = isInstalled && installedInfo.Version !== modLink.version
+      // Check for version mismatch (update available) - only if both versions exist
+      const hasUpdate = isInstalled &&
+        modLink.version &&
+        installedInfo.Version &&
+        installedInfo.Version !== modLink.version
 
       return {
-        id: `${index}`,
+        id: `mod-${index}`,
         name: modLink.name,
         description: modLink.description || 'No description available',
         version: modLink.version,
@@ -192,13 +251,50 @@ export default function App() {
       }
     })
 
-    setMods(parsedMods)
+    // Add packs
+    const parsedPacks: Mod[] = Object.values(packs).map((pack: any, index) => {
+      // Check if all mods in pack are installed
+      const allModsInstalled = pack.mods.every((modName: string) => modName in installedMods)
+
+      // Pack is enabled only if it's the active pack
+      const isEnabled = activePack === pack.name
+
+      return {
+        id: `pack-${index}`,
+        name: pack.name,
+        description: pack.description,
+        version: `${pack.mods.length} mods`,
+        author: pack.author,
+        enabled: isEnabled,
+        installed: allModsInstalled,
+        type: 'modpack' as const,
+        dependencies: pack.mods,
+        mods: pack.mods,
+      }
+    })
+
+    setMods([...parsedMods, ...parsedPacks])
   }, [])
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <Toaster position="bottom-right" />
+      <Toaster position="bottom-right" visibleToasts={1} />
       <TitleBar />
+
+      {showCreatePackDialog && (
+        <CreatePackDialog
+          onClose={() => setShowCreatePackDialog(false)}
+          onCreatePack={handleCreatePack}
+          enabledModsCount={mods.filter(m => m.type === 'mod' && m.enabled).length}
+        />
+      )}
+
+      {showImportPackDialog && (
+        <ImportPackDialog
+          onClose={() => setShowImportPackDialog(false)}
+          onImportPack={handleImportPack}
+        />
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <aside className="w-64 min-w-64 flex-shrink-0 border-r border-border/40 flex flex-col">
@@ -282,18 +378,35 @@ export default function App() {
                 </div>
                 <div className="flex gap-2">
                   {activeTab === 'packs' && (
-                    <Button variant="outline" size="sm" disabled={!gameDirectory}>
-                      Create Pack
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!gameDirectory}
+                        onClick={() => setShowImportPackDialog(true)}
+                      >
+                        Import Pack
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!gameDirectory}
+                        onClick={() => setShowCreatePackDialog(true)}
+                      >
+                        Create Pack
+                      </Button>
+                    </>
+                  )}
+                  {activeTab === 'mods' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!gameDirectory || isInstalling}
+                      onClick={handleDisableAll}
+                    >
+                      Disable All
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!gameDirectory || isInstalling}
-                    onClick={handleDisableAll}
-                  >
-                    Disable All
-                  </Button>
                 </div>
               </div>
               <div className="relative">

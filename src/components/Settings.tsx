@@ -70,6 +70,9 @@ export function Settings() {
 
           setIsUninstalling(false)
 
+          // Clear the active pack since all mods are being uninstalled
+          await ipcRenderer.invoke('set-active-pack', null)
+
           // Trigger a directory update event to refresh the mod list
           if (ipcRenderer) {
             const currentDir = await ipcRenderer.invoke('get-game-directory')

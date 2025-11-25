@@ -75,8 +75,26 @@ interface InstalledModsData {
   }
 }
 
+interface Pack {
+  name: string
+  description: string
+  author: string
+  mods: string[]
+}
+
+interface PacksData {
+  Packs: {
+    [key: string]: Pack
+  }
+  activePack?: string | null
+}
+
 function getInstalledModsPath(gameDirectory: string): string {
   return path.join(getHKLModsPath(gameDirectory), 'installedMods.json')
+}
+
+function getPacksPath(gameDirectory: string): string {
+  return path.join(getHKLModsPath(gameDirectory), 'packs.json')
 }
 
 function syncInstalledMods(gameDirectory: string): void {
@@ -214,6 +232,52 @@ function updateModEnabled(gameDirectory: string, modName: string, enabled: boole
   return false
 }
 
+function readPacks(gameDirectory: string): PacksData {
+  const packsPath = getPacksPath(gameDirectory)
+
+  try {
+    if (fs.existsSync(packsPath)) {
+      const data = fs.readFileSync(packsPath, 'utf-8')
+      return JSON.parse(data)
+    }
+  } catch (error) {
+    console.error('Failed to read packs.json:', error)
+  }
+
+  return {
+    Packs: {}
+  }
+}
+
+function writePacks(gameDirectory: string, data: PacksData): boolean {
+  const packsPath = getPacksPath(gameDirectory)
+
+  try {
+    fs.writeFileSync(packsPath, JSON.stringify(data, null, 2))
+    return true
+  } catch (error) {
+    console.error('Failed to write packs.json:', error)
+    return false
+  }
+}
+
+function addPack(gameDirectory: string, name: string, description: string, author: string, mods: string[]): boolean {
+  const data = readPacks(gameDirectory)
+  data.Packs[name] = {
+    name,
+    description,
+    author,
+    mods
+  }
+  return writePacks(gameDirectory, data)
+}
+
+function removePack(gameDirectory: string, packName: string): boolean {
+  const data = readPacks(gameDirectory)
+  delete data.Packs[packName]
+  return writePacks(gameDirectory, data)
+}
+
 function loadEnabledMods(gameDirectory: string): { success: boolean; error?: string } {
   try {
     const modsPath = getModsPath(gameDirectory)
@@ -325,23 +389,81 @@ function calculateSHA256(buffer: Buffer): string {
   return crypto.createHash('sha256').update(buffer).digest('hex').toUpperCase()
 }
 
-function extractZipToHKL(zipBuffer: Buffer, gameDirectory: string, modName: string): boolean {
+function extractZipToHKL(zipBuffer: Buffer, gameDirectory: string, modName: string): { success: boolean; error?: string } {
   try {
     const hklPath = getHKLModsPath(gameDirectory)
     const modPath = path.join(hklPath, modName)
+
+    // Validate buffer is not empty
+    if (!zipBuffer || zipBuffer.length === 0) {
+      return { success: false, error: 'Downloaded file is empty' }
+    }
+
+    // Check file type by magic bytes
+    const header = zipBuffer.slice(0, 4).toString('hex')
+
+    // Check if it's a DLL file (PE format: starts with MZ - 4D5A)
+    if (header.startsWith('4d5a')) {
+      console.log(`Detected DLL file for mod: ${modName}`)
+
+      // Create mod directory if it doesn't exist
+      if (!fs.existsSync(modPath)) {
+        fs.mkdirSync(modPath, { recursive: true })
+      }
+
+      // Write DLL directly to the mod folder
+      const dllPath = path.join(modPath, `${modName}.dll`)
+      fs.writeFileSync(dllPath, zipBuffer)
+
+      console.log(`Successfully saved DLL to: ${dllPath}`)
+      return { success: true }
+    }
+
+    // Check if it's a ZIP file (should start with PK\x03\x04 or PK\x05\x06)
+    if (!header.startsWith('504b0304') && !header.startsWith('504b0506')) {
+      // Check if it's HTML (common for 404/error pages)
+      const textStart = zipBuffer.slice(0, 100).toString('utf8').toLowerCase()
+      if (textStart.includes('<!doctype') || textStart.includes('<html')) {
+        return { success: false, error: 'Download URL returned a web page instead of a file (likely 404 or access denied)' }
+      }
+      return { success: false, error: 'Downloaded file is not a valid ZIP or DLL file' }
+    }
 
     // Create mod directory if it doesn't exist
     if (!fs.existsSync(modPath)) {
       fs.mkdirSync(modPath, { recursive: true })
     }
 
+    // Handle ZIP file
     const zip = new AdmZip(zipBuffer)
+    const zipEntries = zip.getEntries()
+
+    console.log(`Extracting ${zipEntries.length} files for mod: ${modName}`)
+
+    // Check if zip contains files
+    if (zipEntries.length === 0) {
+      return { success: false, error: 'Zip file is empty' }
+    }
+
     zip.extractAllTo(modPath, true)
 
-    return true
+    // Verify extraction succeeded
+    if (!fs.existsSync(modPath) || fs.readdirSync(modPath).length === 0) {
+      return { success: false, error: 'Extraction completed but no files found' }
+    }
+
+    console.log(`Successfully extracted ${zipEntries.length} files to: ${modPath}`)
+    return { success: true }
   } catch (error) {
-    console.error('Failed to extract zip:', error)
-    return false
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Failed to extract zip:', errorMsg)
+
+    // Provide more helpful error messages
+    if (errorMsg.includes('Invalid or unsupported zip format')) {
+      return { success: false, error: 'Invalid ZIP file - the download may be corrupted or the URL may be broken' }
+    }
+
+    return { success: false, error: errorMsg }
   }
 }
 
@@ -431,6 +553,120 @@ ipcMain.handle('get-installed-mods', () => {
   const gameDirectory = store.get('gameDirectory', '') as string
   if (!gameDirectory) return null
   return readInstalledMods(gameDirectory)
+})
+
+ipcMain.handle('get-packs', () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return null
+  return readPacks(gameDirectory)
+})
+
+ipcMain.handle('create-pack', (_event, packData: { name: string; description: string; author: string; mods: string[] }) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  const success = addPack(gameDirectory, packData.name, packData.description, packData.author, packData.mods)
+  return { success, error: success ? undefined : 'Failed to create pack' }
+})
+
+ipcMain.handle('delete-pack', (_event, packName: string) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  const success = removePack(gameDirectory, packName)
+  return { success, error: success ? undefined : 'Failed to delete pack' }
+})
+
+ipcMain.handle('export-pack', (_event, packName: string) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  try {
+    const packsData = readPacks(gameDirectory)
+    const pack = packsData.Packs[packName]
+
+    if (!pack) {
+      return { success: false, error: 'Pack not found' }
+    }
+
+    // Create export object
+    const exportData = {
+      name: pack.name,
+      description: pack.description,
+      author: pack.author,
+      mods: pack.mods
+    }
+
+    // Convert to JSON and then base64
+    const jsonString = JSON.stringify(exportData)
+    const base64Code = Buffer.from(jsonString).toString('base64')
+
+    return { success: true, code: base64Code }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to export pack: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
+})
+
+ipcMain.handle('import-pack', (_event, base64Code: string) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  try {
+    // Decode base64 to JSON
+    const jsonString = Buffer.from(base64Code, 'base64').toString('utf-8')
+    const packData = JSON.parse(jsonString)
+
+    // Validate pack data
+    if (!packData.name || !packData.mods || !Array.isArray(packData.mods)) {
+      return { success: false, error: 'Invalid pack code format' }
+    }
+
+    // Check if pack already exists
+    const packsData = readPacks(gameDirectory)
+    if (packsData.Packs[packData.name]) {
+      return { success: false, error: `A pack named "${packData.name}" already exists` }
+    }
+
+    // Add the pack
+    const success = addPack(
+      gameDirectory,
+      packData.name,
+      packData.description || '',
+      packData.author || 'Unknown',
+      packData.mods
+    )
+
+    return {
+      success,
+      error: success ? undefined : 'Failed to import pack',
+      packName: packData.name
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to import pack: ${error instanceof Error ? error.message : 'Invalid code'}`
+    }
+  }
+})
+
+ipcMain.handle('set-active-pack', (_event, packName: string | null) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  try {
+    const packsData = readPacks(gameDirectory)
+    packsData.activePack = packName
+    const success = writePacks(gameDirectory, packsData)
+    return { success, error: success ? undefined : 'Failed to set active pack' }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to set active pack: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
 })
 
 ipcMain.handle('toggle-mod-enabled', (_event, modName: string, enabled: boolean, dependencies?: string[]) => {
@@ -555,8 +791,8 @@ ipcMain.handle('install-mod', async (_event, modData: {
         }
 
         const extracted = extractZipToHKL(zipBuffer, gameDirectory, dep.name)
-        if (!extracted) {
-          return { success: false, error: `Failed to extract dependency: ${dep.name}` }
+        if (!extracted.success) {
+          return { success: false, error: `Failed to extract dependency ${dep.name}: ${extracted.error}` }
         }
 
         const success = addInstalledMod(gameDirectory, dep.name, dep.version, true)
@@ -587,8 +823,8 @@ ipcMain.handle('install-mod', async (_event, modData: {
 
     // Extract to HKL directory
     const extracted = extractZipToHKL(zipBuffer, gameDirectory, modData.name)
-    if (!extracted) {
-      return { success: false, error: 'Failed to extract mod files' }
+    if (!extracted.success) {
+      return { success: false, error: `Failed to extract mod files: ${extracted.error}` }
     }
 
     // Add to installed mods list
