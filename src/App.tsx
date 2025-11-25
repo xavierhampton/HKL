@@ -65,6 +65,9 @@ export default function App() {
               setHklError(null)
             }
           })
+
+          // Load mods after we have the game directory
+          loadMods()
         }
       })
 
@@ -80,6 +83,9 @@ export default function App() {
               setHklError(null)
             }
           })
+
+          // Load mods when directory changes
+          loadMods()
         }
       }
 
@@ -135,10 +141,6 @@ export default function App() {
 
     setMods(parsedMods)
   }
-
-  useEffect(() => {
-    loadMods()
-  }, [])
 
   return (
     <div className="h-screen flex flex-col bg-background">

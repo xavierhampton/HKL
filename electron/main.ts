@@ -6,7 +6,9 @@ import https from 'https'
 import crypto from 'crypto'
 import AdmZip from 'adm-zip'
 
-const store = new Store()
+const store = new Store({
+  name: 'hkl-mod-manager'
+})
 
 const MODLINKS_URL = 'https://raw.githubusercontent.com/hk-modding/modlinks/main/ModLinks.xml'
 const MODLINKS_TIMEOUT = 5000
