@@ -26,7 +26,7 @@ export function parseModLinks(xmlContent: string): ModLink[] {
     const repository = manifest.querySelector('Repository')?.textContent || ''
 
     const dependencies: string[] = []
-    manifest.querySelectorAll('Dependencies > string').forEach((dep) => {
+    manifest.querySelectorAll('Dependencies > Dependency').forEach((dep) => {
       const depName = dep.textContent?.trim()
       if (depName) dependencies.push(depName)
     })
