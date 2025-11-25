@@ -99,6 +99,9 @@ export default function App() {
       const isInstalled = modLink.name in installedMods
       const installedInfo = installedMods[modLink.name]
 
+      // Check for version mismatch (update available)
+      const hasUpdate = isInstalled && installedInfo.Version !== modLink.version
+
       return {
         id: `${index}`,
         name: modLink.name,
@@ -111,7 +114,7 @@ export default function App() {
         githubUrl: modLink.repository || undefined,
         dependencies: modLink.dependencies || [],
         integrations: [],
-        hasUpdate: false,
+        hasUpdate: hasUpdate,
         downloadUrl: downloadLink?.URL || undefined,
         sha256: downloadLink?.SHA256 || undefined,
       }

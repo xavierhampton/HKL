@@ -306,10 +306,24 @@ ipcMain.handle('uninstall-mod', (_event, modName: string) => {
   const gameDirectory = store.get('gameDirectory', '') as string
   if (!gameDirectory) return { success: false, error: 'No game directory set' }
 
-  // TODO: Delete mod files from HKL directory
+  try {
+    // Delete mod files from HKL directory
+    const hklPath = getHKLModsPath(gameDirectory)
+    const modPath = path.join(hklPath, modName)
 
-  const success = removeInstalledMod(gameDirectory, modName)
-  return { success, error: success ? undefined : 'Failed to remove mod from installed list' }
+    if (fs.existsSync(modPath)) {
+      fs.rmSync(modPath, { recursive: true, force: true })
+    }
+
+    // Remove from installed mods list
+    const success = removeInstalledMod(gameDirectory, modName)
+    return { success, error: success ? undefined : 'Failed to remove mod from installed list' }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to uninstall mod: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
 })
 
 ipcMain.handle('install-mod', async (_event, modData: { name: string; version: string; downloadUrl: string; sha256?: string }) => {

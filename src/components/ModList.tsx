@@ -30,6 +30,19 @@ export function ModList({
   const [installing, setInstalling] = useState<string | null>(null)
   const hasValidDirectory = !!gameDirectory
 
+  const handleToggleEnabled = async (mod: Mod, enabled: boolean) => {
+    try {
+      const result = await ipcRenderer.invoke('toggle-mod-enabled', mod.name, enabled)
+      if (result.success) {
+        onInstallComplete() // Refresh mod list
+      } else {
+        alert(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${result.error}`)
+      }
+    } catch (error) {
+      alert(`Failed to ${enabled ? 'enable' : 'disable'} mod: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   const handleInstall = async (mod: Mod) => {
     if (!mod.downloadUrl) {
       alert('No download URL available for this mod')
@@ -56,6 +69,52 @@ export function ModList({
       }
     } catch (error) {
       alert(`Installation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      onInstallComplete()
+    } finally {
+      setInstalling(null)
+    }
+  }
+
+  const handleUpdate = async (mod: Mod) => {
+    if (!mod.downloadUrl) {
+      alert('No download URL available for this mod')
+      return
+    }
+
+    if (!confirm(`Update ${mod.name}? This will uninstall the current version and install the new one.`)) {
+      return
+    }
+
+    setInstalling(mod.id)
+    onInstallStart()
+
+    try {
+      // Uninstall current version
+      const uninstallResult = await ipcRenderer.invoke('uninstall-mod', mod.name)
+      if (!uninstallResult.success) {
+        alert(`Failed to uninstall old version: ${uninstallResult.error}`)
+        onInstallComplete()
+        setInstalling(null)
+        return
+      }
+
+      // Install new version
+      const installResult = await ipcRenderer.invoke('install-mod', {
+        name: mod.name,
+        version: mod.version,
+        downloadUrl: mod.downloadUrl,
+        sha256: mod.sha256
+      })
+
+      if (installResult.success) {
+        alert(`${mod.name} updated successfully!`)
+        onInstallComplete()
+      } else {
+        alert(`Update failed: ${installResult.error}`)
+        onInstallComplete()
+      }
+    } catch (error) {
+      alert(`Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       onInstallComplete()
     } finally {
       setInstalling(null)
@@ -96,8 +155,13 @@ export function ModList({
               <Switch
                 checked={mod.enabled}
                 className="flex-shrink-0"
-                onClick={(e) => e.stopPropagation()}
-                disabled={!hasValidDirectory}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (mod.installed) {
+                    handleToggleEnabled(mod, !mod.enabled)
+                  }
+                }}
+                disabled={!hasValidDirectory || !mod.installed}
               />
 
               <div className="flex-1 min-w-0">
@@ -146,10 +210,11 @@ export function ModList({
                   className="flex-shrink-0"
                   onClick={(e) => {
                     e.stopPropagation()
+                    handleUpdate(mod)
                   }}
-                  disabled={!hasValidDirectory}
+                  disabled={!hasValidDirectory || installing === mod.id}
                 >
-                  Update
+                  {installing === mod.id ? 'Updating...' : 'Update'}
                 </Button>
               )}
             </div>
