@@ -535,28 +535,16 @@ export function ModList({
                 {mod.type === 'mod' && (
                   <div className="flex gap-3">
                     {mod.githubUrl && (
-                      <>
-                        <a
-                          href={mod.githubUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          View on GitHub
-                        </a>
-                        <a
-                          href={`${mod.githubUrl}#readme`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          View README
-                        </a>
-                      </>
+                      <a
+                        href={mod.githubUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        View on GitHub
+                      </a>
                     )}
                     {mod.installed && (
                       <button
