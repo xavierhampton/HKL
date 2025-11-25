@@ -32,9 +32,9 @@ export function parseModLinks(xmlContent: string): ModLink[] {
     })
 
     const links: { SHA256: string; URL: string }[] = []
-    manifest.querySelectorAll('Links > Manifest').forEach((link) => {
-      const sha256 = link.querySelector('SHA256')?.textContent || ''
-      const url = link.querySelector('URL')?.textContent || ''
+    manifest.querySelectorAll('Link').forEach((link) => {
+      const sha256 = link.getAttribute('SHA256') || ''
+      const url = link.textContent?.trim() || ''
       if (sha256 && url) {
         links.push({ SHA256: sha256, URL: url })
       }
