@@ -32,7 +32,7 @@ export function ModList({
 
   const handleToggleEnabled = async (mod: Mod, enabled: boolean) => {
     try {
-      const result = await ipcRenderer.invoke('toggle-mod-enabled', mod.name, enabled)
+      const result = await ipcRenderer.invoke('toggle-mod-enabled', mod.name, enabled, mod.dependencies)
       if (result.success) {
         onInstallComplete() // Refresh mod list
       } else {
@@ -53,11 +53,28 @@ export function ModList({
     onInstallStart()
 
     try {
+      // Resolve dependencies - find their download URLs from the mods list
+      const dependencies = mod.dependencies && mod.dependencies.length > 0
+        ? mod.dependencies.map(depName => {
+            const depMod = mods.find(m => m.name === depName)
+            if (!depMod || !depMod.downloadUrl) {
+              return null
+            }
+            return {
+              name: depMod.name,
+              version: depMod.version,
+              downloadUrl: depMod.downloadUrl,
+              sha256: depMod.sha256
+            }
+          }).filter(d => d !== null) as Array<{ name: string; version: string; downloadUrl: string; sha256?: string }>
+        : []
+
       const result = await ipcRenderer.invoke('install-mod', {
         name: mod.name,
         version: mod.version,
         downloadUrl: mod.downloadUrl,
-        sha256: mod.sha256
+        sha256: mod.sha256,
+        dependencies: dependencies
       })
 
       if (result.success) {
@@ -98,12 +115,29 @@ export function ModList({
         return
       }
 
+      // Resolve dependencies
+      const dependencies = mod.dependencies && mod.dependencies.length > 0
+        ? mod.dependencies.map(depName => {
+            const depMod = mods.find(m => m.name === depName)
+            if (!depMod || !depMod.downloadUrl) {
+              return null
+            }
+            return {
+              name: depMod.name,
+              version: depMod.version,
+              downloadUrl: depMod.downloadUrl,
+              sha256: depMod.sha256
+            }
+          }).filter(d => d !== null) as Array<{ name: string; version: string; downloadUrl: string; sha256?: string }>
+        : []
+
       // Install new version
       const installResult = await ipcRenderer.invoke('install-mod', {
         name: mod.name,
         version: mod.version,
         downloadUrl: mod.downloadUrl,
-        sha256: mod.sha256
+        sha256: mod.sha256,
+        dependencies: dependencies
       })
 
       if (installResult.success) {

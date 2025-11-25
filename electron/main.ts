@@ -385,9 +385,19 @@ ipcMain.handle('get-installed-mods', () => {
   return readInstalledMods(gameDirectory)
 })
 
-ipcMain.handle('toggle-mod-enabled', (_event, modName: string, enabled: boolean) => {
+ipcMain.handle('toggle-mod-enabled', (_event, modName: string, enabled: boolean, dependencies?: string[]) => {
   const gameDirectory = store.get('gameDirectory', '') as string
   if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  // If enabling, also enable dependencies
+  if (enabled && dependencies && dependencies.length > 0) {
+    for (const dep of dependencies) {
+      const depSuccess = updateModEnabled(gameDirectory, dep, true)
+      if (!depSuccess) {
+        console.log(`Warning: Failed to enable dependency: ${dep}`)
+      }
+    }
+  }
 
   const success = updateModEnabled(gameDirectory, modName, enabled)
   return { success, error: success ? undefined : 'Failed to update mod state' }
@@ -455,7 +465,13 @@ ipcMain.handle('launch-game', () => {
   }
 })
 
-ipcMain.handle('install-mod', async (_event, modData: { name: string; version: string; downloadUrl: string; sha256?: string }) => {
+ipcMain.handle('install-mod', async (_event, modData: {
+  name: string;
+  version: string;
+  downloadUrl: string;
+  sha256?: string;
+  dependencies?: Array<{ name: string; version: string; downloadUrl: string; sha256?: string }>
+}) => {
   const gameDirectory = store.get('gameDirectory', '') as string
 
   // Ensure HKL directory exists
@@ -465,7 +481,47 @@ ipcMain.handle('install-mod', async (_event, modData: { name: string; version: s
   }
 
   try {
-    // Download mod from URL
+    const installedMods = readInstalledMods(gameDirectory)
+    const installedModsList: string[] = []
+
+    // Install dependencies first
+    if (modData.dependencies && modData.dependencies.length > 0) {
+      for (const dep of modData.dependencies) {
+        // Skip if already installed
+        if (installedMods.InstalledMods.Mods[dep.name]) {
+          console.log(`Dependency ${dep.name} already installed, skipping`)
+          continue
+        }
+
+        console.log(`Installing dependency: ${dep.name}`)
+        const zipBuffer = await downloadFile(dep.downloadUrl)
+
+        if (dep.sha256) {
+          const calculatedHash = calculateSHA256(zipBuffer)
+          if (calculatedHash !== dep.sha256.toUpperCase()) {
+            return {
+              success: false,
+              error: `Dependency ${dep.name}: Hash verification failed`
+            }
+          }
+        }
+
+        const extracted = extractZipToHKL(zipBuffer, gameDirectory, dep.name)
+        if (!extracted) {
+          return { success: false, error: `Failed to extract dependency: ${dep.name}` }
+        }
+
+        const success = addInstalledMod(gameDirectory, dep.name, dep.version, true)
+        if (!success) {
+          return { success: false, error: `Failed to add dependency to installed list: ${dep.name}` }
+        }
+
+        installedModsList.push(dep.name)
+        console.log(`Successfully installed dependency: ${dep.name}`)
+      }
+    }
+
+    // Download main mod from URL
     console.log(`Downloading mod: ${modData.name} from ${modData.downloadUrl}`)
     const zipBuffer = await downloadFile(modData.downloadUrl)
 
@@ -493,8 +549,14 @@ ipcMain.handle('install-mod', async (_event, modData: { name: string; version: s
       return { success: false, error: 'Failed to update installed mods list' }
     }
 
+    installedModsList.push(modData.name)
     console.log(`Successfully installed mod: ${modData.name}`)
-    return { success: true, message: `${modData.name} installed successfully` }
+
+    const message = installedModsList.length > 1
+      ? `${modData.name} and ${installedModsList.length - 1} dependencies installed successfully`
+      : `${modData.name} installed successfully`
+
+    return { success: true, message, installedMods: installedModsList }
   } catch (error) {
     return {
       success: false,
