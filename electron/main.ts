@@ -687,6 +687,29 @@ ipcMain.handle('toggle-mod-enabled', (_event, modName: string, enabled: boolean,
   return { success, error: success ? undefined : 'Failed to update mod state' }
 })
 
+ipcMain.handle('batch-toggle-mods', (_event, changes: Array<{modName: string, enabled: boolean}>) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  try {
+    const data = readInstalledMods(gameDirectory)
+
+    for (const change of changes) {
+      if (data.InstalledMods.Mods[change.modName]) {
+        data.InstalledMods.Mods[change.modName].Enabled = change.enabled
+      }
+    }
+
+    const success = writeInstalledMods(gameDirectory, data)
+    return { success, error: success ? undefined : 'Failed to batch update mod states' }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to batch toggle mods: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
+})
+
 ipcMain.handle('uninstall-mod', (_event, modName: string) => {
   const gameDirectory = store.get('gameDirectory', '') as string
   if (!gameDirectory) return { success: false, error: 'No game directory set' }
@@ -709,6 +732,34 @@ ipcMain.handle('uninstall-mod', (_event, modName: string) => {
       error: `Failed to uninstall mod: ${error instanceof Error ? error.message : 'Unknown error'}`
     }
   }
+})
+
+ipcMain.handle('batch-uninstall-mods', (_event, modNames: string[]) => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  const hklPath = getHKLModsPath(gameDirectory)
+  const data = readInstalledMods(gameDirectory)
+  const results = { success: 0, failed: 0 }
+
+  for (const modName of modNames) {
+    try {
+      // Delete mod files
+      const modPath = path.join(hklPath, modName)
+      if (fs.existsSync(modPath)) {
+        fs.rmSync(modPath, { recursive: true, force: true })
+      }
+      // Update tracking
+      delete data.InstalledMods.Mods[modName]
+      results.success++
+    } catch (error) {
+      console.error(`Failed to uninstall ${modName}:`, error)
+      results.failed++
+    }
+  }
+
+  writeInstalledMods(gameDirectory, data)
+  return { success: true, results }
 })
 
 ipcMain.handle('launch-game', () => {

@@ -79,21 +79,13 @@ export default function App() {
         label: 'Disable',
         onClick: async () => {
           setIsInstalling(true)
-          let successCount = 0
-          let failCount = 0
 
-          for (const mod of enabledMods) {
-            try {
-              const result = await ipcRenderer.invoke('toggle-mod-enabled', mod.name, false, [])
-              if (result.success) {
-                successCount++
-              } else {
-                failCount++
-              }
-            } catch (error) {
-              failCount++
-            }
-          }
+          // Use batch toggle for better performance
+          const changes = enabledMods.map(mod => ({ modName: mod.name, enabled: false }))
+          const result = await ipcRenderer.invoke('batch-toggle-mods', changes)
+
+          const successCount = result.success ? enabledMods.length : 0
+          const failCount = result.success ? 0 : enabledMods.length
 
           setIsInstalling(false)
           await new Promise(resolve => setTimeout(resolve, 100))

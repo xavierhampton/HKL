@@ -52,21 +52,11 @@ export function Settings() {
         label: 'Uninstall',
         onClick: async () => {
           setIsUninstalling(true)
-          let successCount = 0
-          let failCount = 0
 
-          for (const modName of Object.keys(installedMods)) {
-            try {
-              const result = await ipcRenderer.invoke('uninstall-mod', modName)
-              if (result.success) {
-                successCount++
-              } else {
-                failCount++
-              }
-            } catch (error) {
-              failCount++
-            }
-          }
+          // Use batch uninstall for better performance
+          const result = await ipcRenderer.invoke('batch-uninstall-mods', Object.keys(installedMods))
+          const successCount = result.results?.success || 0
+          const failCount = result.results?.failed || 0
 
           setIsUninstalling(false)
 

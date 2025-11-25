@@ -109,24 +109,30 @@ export function ModList({
         }
       }
 
+      // Collect all changes for batch operation
+      const changes: Array<{modName: string, enabled: boolean}> = []
+
       // Disable ALL other mods (both regular mods and other packs)
       const allEnabledMods = mods.filter(m => m.enabled && m.name !== pack.name)
       for (const mod of allEnabledMods) {
         if (mod.type === 'modpack' && mod.mods) {
           // Disable all mods in the pack
           for (const modName of mod.mods) {
-            await ipcRenderer.invoke('toggle-mod-enabled', modName, false, [])
+            changes.push({ modName, enabled: false })
           }
         } else if (mod.type === 'mod') {
           // Disable regular mod
-          await ipcRenderer.invoke('toggle-mod-enabled', mod.name, false, [])
+          changes.push({ modName: mod.name, enabled: false })
         }
       }
 
       // Enable all mods in the pack
       for (const modName of pack.mods) {
-        await ipcRenderer.invoke('toggle-mod-enabled', modName, true, [])
+        changes.push({ modName, enabled: true })
       }
+
+      // Single batch operation instead of multiple disk writes
+      await ipcRenderer.invoke('batch-toggle-mods', changes)
 
       // Set this pack as the active pack
       await ipcRenderer.invoke('set-active-pack', pack.name)
