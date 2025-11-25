@@ -20,6 +20,10 @@ function getManagedPath(gameDirectory: string): string {
   return path.join(gameDirectory, 'hollow_knight_Data', 'Managed')
 }
 
+function getModsPath(gameDirectory: string): string {
+  return path.join(gameDirectory, 'hollow_knight_Data', 'Managed', 'Mods')
+}
+
 function isModdingApiInstalled(gameDirectory: string): boolean {
   const managedPath = getManagedPath(gameDirectory)
   // Check if Assembly-CSharp.dll exists (the main modding API file)
@@ -158,6 +162,51 @@ function updateModEnabled(gameDirectory: string, modName: string, enabled: boole
     return writeInstalledMods(gameDirectory, data)
   }
   return false
+}
+
+function loadEnabledMods(gameDirectory: string): { success: boolean; error?: string } {
+  try {
+    const modsPath = getModsPath(gameDirectory)
+    const hklPath = getHKLModsPath(gameDirectory)
+
+    // Create Mods directory if it doesn't exist
+    if (!fs.existsSync(modsPath)) {
+      fs.mkdirSync(modsPath, { recursive: true })
+    }
+
+    // Clear all existing mods in Mods folder
+    const existingMods = fs.readdirSync(modsPath)
+    for (const modFolder of existingMods) {
+      const modFolderPath = path.join(modsPath, modFolder)
+      if (fs.statSync(modFolderPath).isDirectory()) {
+        fs.rmSync(modFolderPath, { recursive: true, force: true })
+      }
+    }
+
+    // Get list of enabled mods
+    const installedMods = readInstalledMods(gameDirectory)
+    const enabledMods = Object.entries(installedMods.InstalledMods.Mods)
+      .filter(([_, modInfo]) => modInfo.Enabled)
+      .map(([modName, _]) => modName)
+
+    // Copy enabled mods from HKL to Mods folder
+    for (const modName of enabledMods) {
+      const sourcePath = path.join(hklPath, modName)
+      const destPath = path.join(modsPath, modName)
+
+      if (fs.existsSync(sourcePath)) {
+        // Copy directory recursively
+        fs.cpSync(sourcePath, destPath, { recursive: true })
+      }
+    }
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to load mods: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
 }
 
 async function fetchModLinks(): Promise<string> {
@@ -379,6 +428,12 @@ ipcMain.handle('launch-game', () => {
       }
     }
 
+    // Load enabled mods into Mods folder
+    const loadModsResult = loadEnabledMods(gameDirectory)
+    if (!loadModsResult.success) {
+      return { success: false, error: loadModsResult.error }
+    }
+
     // Launch the game
     const exePath = path.join(gameDirectory, 'hollow_knight.exe')
     if (!fs.existsSync(exePath)) {
@@ -386,8 +441,8 @@ ipcMain.handle('launch-game', () => {
     }
 
     // Launch without waiting
-    // const { spawn } = require('child_process')
-    // spawn(exePath, [], { detached: true, stdio: 'ignore', cwd: gameDirectory }).unref()
+    const { spawn } = require('child_process')
+    spawn(exePath, [], { detached: true, stdio: 'ignore', cwd: gameDirectory }).unref()
 
     return { success: true, message: 'Game launched successfully' }
   } catch (error) {
