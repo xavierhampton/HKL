@@ -1,6 +1,6 @@
 {
   "appId": "com.hkl.modmanager",
-  "productName": "HKL Mod Manager",
+  "productName": "HKL",
   "directories": {
     "output": "dist"
   },
@@ -26,6 +26,7 @@
         "arch": ["x64"]
       }
     ],
+    "icon": "public/icon.png",
     "signAndEditExecutable": false,
     "signingHashAlgorithms": []
   },
@@ -33,9 +34,10 @@
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
-    "createStartMenuShortcut": true
+    "createStartMenuShortcut": true,
+    "artifactName": "HKL-Setup-${version}.exe"
   },
   "portable": {
-    "artifactName": "HKL-Mod-Manager-Portable.exe"
+    "artifactName": "HKL-Portable.exe"
   }
 }
