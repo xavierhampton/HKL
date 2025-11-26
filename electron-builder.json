@@ -26,7 +26,7 @@
         "arch": ["x64"]
       }
     ],
-    "icon": "public/icon.png",
+    "icon": "public/icon.ico",
     "signAndEditExecutable": false,
     "signingHashAlgorithms": []
   },
@@ -38,6 +38,6 @@
     "artifactName": "HKL-Setup-${version}.exe"
   },
   "portable": {
-    "artifactName": "HKL-Portable.exe"
+    "artifactName": "HKL.exe"
   }
 }
