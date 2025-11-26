@@ -18,7 +18,6 @@ export function TitleBar() {
   return (
     <div className="h-8 bg-background border-b border-border/40 flex items-center justify-between px-3 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
       <div className="flex items-center gap-2">
-        <img src="/icon.png" alt="HKL" className="h-5 w-5" />
         <span className="text-xs font-medium text-muted-foreground">HKL</span>
       </div>
       <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>

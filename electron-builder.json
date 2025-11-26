@@ -1,0 +1,41 @@
+{
+  "appId": "com.hkl.modmanager",
+  "productName": "HKL Mod Manager",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "public/resources/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "public/resources",
+      "to": "resources"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "signAndEditExecutable": false,
+    "signingHashAlgorithms": []
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  "portable": {
+    "artifactName": "HKL-Mod-Manager-Portable.exe"
+  }
+}

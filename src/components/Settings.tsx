@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { FolderOpen, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
 export function Settings() {
   const [gameDirectory, setGameDirectory] = useState('')
   const [error, setError] = useState('')
+  const [isUninstalling, setIsUninstalling] = useState(false)
 
   useEffect(() => {
     if (ipcRenderer) {
@@ -28,6 +30,53 @@ export function Settings() {
     } else {
       setError(result.error)
     }
+  }
+
+  const handleUninstallAll = async () => {
+    if (!ipcRenderer) return
+
+    // Get installed mods
+    const installedModsData = await ipcRenderer.invoke('get-installed-mods')
+    const installedMods = installedModsData?.InstalledMods?.Mods || {}
+    const modCount = Object.keys(installedMods).length
+
+    if (modCount === 0) {
+      toast.info('No installed mods to uninstall')
+      return
+    }
+
+    // Show toast with action to confirm
+    toast.warning(`This will uninstall all ${modCount} mods. Click Uninstall to proceed.`, {
+      duration: 10000,
+      action: {
+        label: 'Uninstall',
+        onClick: async () => {
+          setIsUninstalling(true)
+
+          // Use batch uninstall for better performance
+          const result = await ipcRenderer.invoke('batch-uninstall-mods', Object.keys(installedMods))
+          const successCount = result.results?.success || 0
+          const failCount = result.results?.failed || 0
+
+          setIsUninstalling(false)
+
+          // Clear the active pack since all mods are being uninstalled
+          await ipcRenderer.invoke('set-active-pack', null)
+
+          // Trigger a directory update event to refresh the mod list
+          if (ipcRenderer) {
+            const currentDir = await ipcRenderer.invoke('get-game-directory')
+            ipcRenderer.send('trigger-directory-update', currentDir)
+          }
+
+          if (failCount === 0) {
+            toast.success(`Uninstalled ${successCount} mods`)
+          } else {
+            toast.warning(`Uninstalled ${successCount} mods, ${failCount} failed`)
+          }
+        }
+      }
+    })
   }
 
   return (
@@ -67,8 +116,13 @@ export function Settings() {
             <label className="text-sm text-muted-foreground mb-2 block">
               Mod Management
             </label>
-            <Button variant="destructive" size="sm" disabled={!gameDirectory}>
-              Uninstall All Mods
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!gameDirectory || isUninstalling}
+              onClick={handleUninstallAll}
+            >
+              {isUninstalling ? 'Uninstalling...' : 'Uninstall All Mods'}
             </Button>
           </div>
         </div>
