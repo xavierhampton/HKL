@@ -974,17 +974,50 @@ ipcMain.on('trigger-directory-update', (event, dir: string) => {
 })
 
 function createWindow() {
+  // Try multiple icon paths - this is sketchy but works for packaged apps
+  const possiblePaths = [
+    path.join(__dirname, '../public/icon.ico'),
+    path.join(__dirname, '../../public/icon.ico'),
+    path.join(__dirname, '../build/icon.ico'),
+    path.join(__dirname, '../../build/icon.ico'),
+    path.join(process.resourcesPath || '', 'public/icon.ico'),
+    path.join(process.resourcesPath || '', 'build/icon.ico'),
+  ]
+
+  let iconPath = possiblePaths[0]
+  for (const testPath of possiblePaths) {
+    if (fs.existsSync(testPath)) {
+      iconPath = testPath
+      break
+    }
+  }
+
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
     frame: false,
     titleBarStyle: 'hidden',
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
     },
   })
+
+  // Nuclear option: Force set icon after creation (Windows taskbar fix)
+  if (process.platform === 'win32') {
+    try {
+      win.setIcon(iconPath)
+      // Also try with nativeImage for better compatibility
+      const { nativeImage } = require('electron')
+      const image = nativeImage.createFromPath(iconPath)
+      if (!image.isEmpty()) {
+        win.setIcon(image)
+      }
+    } catch (e) {
+      console.error('Failed to set icon:', e)
+    }
+  }
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)

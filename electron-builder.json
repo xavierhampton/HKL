@@ -1,18 +1,23 @@
 {
   "appId": "com.hkl.modmanager",
-  "productName": "HKL Mod Manager",
+  "productName": "HKL",
   "directories": {
     "output": "dist"
   },
   "files": [
     "dist/**/*",
     "dist-electron/**/*",
-    "public/resources/**/*"
+    "public/resources/**/*",
+    "build/icon.ico"
   ],
   "extraResources": [
     {
       "from": "public/resources",
       "to": "resources"
+    },
+    {
+      "from": "public/icon.ico",
+      "to": "icon.ico"
     }
   ],
   "win": {
@@ -26,6 +31,7 @@
         "arch": ["x64"]
       }
     ],
+    "icon": "public/icon.ico",
     "signAndEditExecutable": false,
     "signingHashAlgorithms": []
   },
@@ -33,9 +39,10 @@
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
-    "createStartMenuShortcut": true
+    "createStartMenuShortcut": true,
+    "artifactName": "HKL-Setup-${version}.exe"
   },
   "portable": {
-    "artifactName": "HKL-Mod-Manager-Portable.exe"
+    "artifactName": "HKL.exe"
   }
 }
