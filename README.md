@@ -1,6 +1,6 @@
 # HKL - Hollow Knight Loader
 
-A lightweight mod manager for Hollow Knight focused on simplicity and speed.
+A mod manager for Hollow Knight focused on user experience.
 
 ## Features
 
