@@ -1247,7 +1247,7 @@ function createWindow() {
       contextIsolation: false,
     },
   })
-  win.webContents.openDevTools()
+  // win.webContents.openDevTools()
 
   // Nuclear option: Force set icon after creation (Windows taskbar fix)
   if (process.platform === 'win32') {
