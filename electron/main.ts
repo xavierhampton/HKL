@@ -962,8 +962,8 @@ ipcMain.handle('get-vanilla-mode', () => {
     return false // Modded mode
   }
 
-  // Default to modded mode
-  return store.get('vanillaMode', false)
+  // Default to vanilla mode (safer - prevents incorrect backups on first launch)
+  return store.get('vanillaMode', true)
 })
 
 ipcMain.handle('set-vanilla-mode', (_event, enabled: boolean) => {
@@ -1013,7 +1013,7 @@ ipcMain.handle('launch-game', async () => {
   if (!gameDirectory) return { success: false, error: 'No game directory set' }
 
   try {
-    const vanillaMode = store.get('vanillaMode', false) as boolean
+    const vanillaMode = store.get('vanillaMode', true) as boolean
     const managedPath = getManagedPath(gameDirectory)
     const currentDll = path.join(managedPath, 'Assembly-CSharp.dll')
     const moddedBackup = path.join(managedPath, 'Assembly-CSharp.dll.m')

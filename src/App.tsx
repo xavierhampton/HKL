@@ -43,7 +43,7 @@ export default function App() {
   const [isInstalling, setIsInstalling] = useState(false)
   const [showCreatePackDialog, setShowCreatePackDialog] = useState(false)
   const [showImportPackDialog, setShowImportPackDialog] = useState(false)
-  const [vanillaMode, setVanillaMode] = useState(false)
+  const [vanillaMode, setVanillaMode] = useState(true)
 
   const handleLaunchGame = async () => {
     if (ipcRenderer) {
