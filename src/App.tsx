@@ -4,7 +4,7 @@ import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
 import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
-import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle } from 'lucide-react'
+import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle, RefreshCw } from 'lucide-react'
 import { parseModLinks } from './utils/modLinksParser'
 import { Toaster, toast } from 'sonner'
 import { CreatePackDialog } from './components/CreatePackDialog'
@@ -43,6 +43,7 @@ export default function App() {
   const [isInstalling, setIsInstalling] = useState(false)
   const [showCreatePackDialog, setShowCreatePackDialog] = useState(false)
   const [showImportPackDialog, setShowImportPackDialog] = useState(false)
+  const [vanillaMode, setVanillaMode] = useState(false)
 
   const handleLaunchGame = async () => {
     if (ipcRenderer) {
@@ -51,10 +52,26 @@ export default function App() {
         if (!result.success) {
           toast.error(`Failed to launch game: ${result.error}`)
         } else {
-          toast.success('Game launched successfully')
+          toast.success(`Game launched in ${vanillaMode ? 'vanilla' : 'modded'} mode`)
         }
       } catch (error) {
         toast.error(`Failed to launch game: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
+    }
+  }
+
+  const handleVanillaModeChange = async (enabled: boolean) => {
+    if (ipcRenderer) {
+      try {
+        const result = await ipcRenderer.invoke('set-vanilla-mode', enabled)
+        if (result.success) {
+          setVanillaMode(enabled)
+          toast.success(`Switched to ${enabled ? 'vanilla' : 'modded'} mode`)
+        } else {
+          toast.error(`Failed to switch mode: ${result.error}`)
+        }
+      } catch (error) {
+        toast.error(`Failed to switch mode: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     }
   }
@@ -227,6 +244,11 @@ export default function App() {
         }
       })
 
+      // Load vanilla mode state
+      ipcRenderer.invoke('get-vanilla-mode').then((isVanilla: boolean) => {
+        setVanillaMode(isVanilla)
+      })
+
       const handleDirectoryUpdate = (_event: any, dir: string) => {
         setGameDirectory(dir)
 
@@ -391,14 +413,23 @@ export default function App() {
           </nav>
 
           <div className="p-3 border-t border-border/40">
-            <Button
-              className="w-full bg-accent text-accent-foreground hover:bg-accent/80"
-              disabled={!gameDirectory || isInstalling}
-              onClick={handleLaunchGame}
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Launch Game
-            </Button>
+            <div className="relative">
+              <Button
+                className="w-full bg-accent text-accent-foreground hover:bg-accent/80"
+                disabled={!gameDirectory || isInstalling}
+                onClick={handleLaunchGame}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                {vanillaMode ? 'Play Vanilla' : 'Play Modded'}
+              </Button>
+              <button
+                onClick={() => handleVanillaModeChange(!vanillaMode)}
+                className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-muted hover:bg-accent transition-colors flex items-center justify-center"
+                title={`Switch to ${vanillaMode ? 'modded' : 'vanilla'} mode`}
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </aside>
 

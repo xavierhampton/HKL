@@ -18,6 +18,10 @@ function getHKLModsPath(gameDirectory: string): string {
   return path.join(gameDirectory, 'hollow_knight_Data', 'Managed', 'HKL')
 }
 
+function getHKLCachePath(gameDirectory: string): string {
+  return path.join(gameDirectory, 'hollow_knight_Data', 'Managed', 'HKL', 'Cache')
+}
+
 function getManagedPath(gameDirectory: string): string {
   return path.join(gameDirectory, 'hollow_knight_Data', 'Managed')
 }
@@ -28,38 +32,159 @@ function getModsPath(gameDirectory: string): string {
 
 function isModdingApiInstalled(gameDirectory: string): boolean {
   const managedPath = getManagedPath(gameDirectory)
-  // Check if Assembly-CSharp.dll exists (the main modding API file)
-  return fs.existsSync(path.join(managedPath, 'Assembly-CSharp.dll'))
+  const currentDll = path.join(managedPath, 'Assembly-CSharp.dll')
+  const moddedBackup = path.join(managedPath, 'Assembly-CSharp.dll.m')
+  const vanillaBackup = path.join(managedPath, 'Assembly-CSharp.dll.v')
+
+  // Modding API is installed if:
+  // - Current DLL exists AND vanilla backup exists (modded is active)
+  // - OR modded backup exists (vanilla is active, but modded is backed up)
+  return (fs.existsSync(currentDll) && fs.existsSync(vanillaBackup)) || fs.existsSync(moddedBackup)
 }
 
-function installModdingApi(gameDirectory: string): { success: boolean; error?: string } {
-  try {
-    const managedPath = getManagedPath(gameDirectory)
-    const moddingApiPath = path.join(__dirname, '../public/resources/ModdingApiWin')
+async function installModdingApi(gameDirectory: string): Promise<{ success: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    try {
+      const managedPath = getManagedPath(gameDirectory)
+      const currentDll = path.join(managedPath, 'Assembly-CSharp.dll')
+      const vanillaBackup = path.join(managedPath, 'Assembly-CSharp.dll.v')
+      const cachePath = getHKLCachePath(gameDirectory)
 
-    // Check if modding API source exists
-    if (!fs.existsSync(moddingApiPath)) {
-      return { success: false, error: 'Modding API files not found in resources' }
+      // Ensure cache directory exists
+      if (!fs.existsSync(cachePath)) {
+        fs.mkdirSync(cachePath, { recursive: true })
+      }
+
+      // Fetch API info from ApiLinks.xml
+      const apiLinksUrl = 'https://raw.githubusercontent.com/hk-modding/modlinks/main/ApiLinks.xml'
+
+      https.get(apiLinksUrl, (res) => {
+        let data = ''
+        res.on('data', (chunk) => { data += chunk })
+        res.on('end', () => {
+          try {
+            // Parse XML to get API download URL
+            // The URL is in CDATA: <Windows SHA256="..."><![CDATA[https://...]]></Windows>
+            const windowsMatch = data.match(/<Windows[^>]*SHA256="([^"]+)"[^>]*>[\s\S]*?<!\[CDATA\[([\s\S]*?)\]\]>[\s\S]*?<\/Windows>/)
+
+            if (!windowsMatch || !windowsMatch[2]) {
+              console.error('[HKL] Failed to parse ApiLinks.xml. XML content:', data.substring(0, 500))
+              resolve({ success: false, error: 'Could not find Windows download URL in ApiLinks.xml' })
+              return
+            }
+
+            const expectedHash = windowsMatch[1]
+            const apiUrl = windowsMatch[2].trim()
+            console.log('[HKL] Found API URL:', apiUrl)
+            console.log('[HKL] Expected hash:', expectedHash)
+
+            // Check if we have a cached version with matching hash
+            const cachedApiPath = path.join(cachePath, `ModdingApiWin-${expectedHash}.zip`)
+            if (fs.existsSync(cachedApiPath)) {
+              console.log('[HKL] Using cached API from:', cachedApiPath)
+              try {
+                const cachedBuffer = fs.readFileSync(cachedApiPath)
+
+                // Backup vanilla Assembly-CSharp.dll before installing modded version
+                if (fs.existsSync(currentDll) && !fs.existsSync(vanillaBackup)) {
+                  fs.copyFileSync(currentDll, vanillaBackup)
+                  console.log('[HKL] Backed up vanilla DLL to .v')
+                }
+
+                // Extract zip file to Managed folder
+                const zip = new AdmZip(cachedBuffer)
+                zip.extractAllTo(managedPath, true)
+                console.log('[HKL] Extracted cached API to:', managedPath)
+
+                resolve({ success: true })
+                return
+              } catch (cacheError) {
+                console.error('[HKL] Failed to use cached API, will re-download:', cacheError)
+                // Continue to download if cache fails
+              }
+            }
+
+            // Download the API zip file (follow redirects)
+            const downloadFile = (url: string, maxRedirects = 5): void => {
+              if (maxRedirects === 0) {
+                resolve({ success: false, error: 'Too many redirects' })
+                return
+              }
+
+              https.get(url, (apiRes) => {
+                // Handle redirects
+                if (apiRes.statusCode === 301 || apiRes.statusCode === 302 || apiRes.statusCode === 307 || apiRes.statusCode === 308) {
+                  const redirectUrl = apiRes.headers.location
+                  if (redirectUrl) {
+                    console.log('[HKL] Following redirect to:', redirectUrl)
+                    downloadFile(redirectUrl, maxRedirects - 1)
+                    return
+                  }
+                }
+
+                if (apiRes.statusCode !== 200) {
+                  resolve({ success: false, error: `Download failed with status ${apiRes.statusCode}` })
+                  return
+                }
+
+                const chunks: Buffer[] = []
+                apiRes.on('data', (chunk) => chunks.push(chunk))
+                apiRes.on('end', () => {
+                  try {
+                    const zipBuffer = Buffer.concat(chunks)
+                    console.log('[HKL] Downloaded', zipBuffer.length, 'bytes')
+
+                    // Verify SHA256 if provided
+                    if (expectedHash) {
+                      const hash = crypto.createHash('sha256').update(zipBuffer).digest('hex')
+                      if (hash.toLowerCase() !== expectedHash.toLowerCase()) {
+                        resolve({ success: false, error: `SHA256 mismatch. Expected: ${expectedHash}, Got: ${hash}` })
+                        return
+                      }
+                      console.log('[HKL] SHA256 verified successfully')
+                    }
+
+                    // Save to cache for future use
+                    try {
+                      fs.writeFileSync(cachedApiPath, zipBuffer)
+                      console.log('[HKL] Cached API to:', cachedApiPath)
+                    } catch (cacheWriteError) {
+                      console.error('[HKL] Failed to cache API (non-fatal):', cacheWriteError)
+                    }
+
+                    // Backup vanilla Assembly-CSharp.dll before installing modded version
+                    if (fs.existsSync(currentDll) && !fs.existsSync(vanillaBackup)) {
+                      fs.copyFileSync(currentDll, vanillaBackup)
+                      console.log('[HKL] Backed up vanilla DLL to .v')
+                    }
+
+                    // Extract zip file to Managed folder
+                    const zip = new AdmZip(zipBuffer)
+                    zip.extractAllTo(managedPath, true)
+                    console.log('[HKL] Extracted API to:', managedPath)
+
+                    resolve({ success: true })
+                  } catch (extractError) {
+                    resolve({ success: false, error: `Failed to extract API: ${extractError instanceof Error ? extractError.message : 'Unknown error'}` })
+                  }
+                })
+              }).on('error', (err) => {
+                resolve({ success: false, error: `Failed to download API: ${err.message}` })
+              })
+            }
+
+            downloadFile(apiUrl)
+          } catch (parseError) {
+            resolve({ success: false, error: `Failed to parse ApiLinks.xml: ${parseError instanceof Error ? parseError.message : 'Unknown error'}` })
+          }
+        })
+      }).on('error', (err) => {
+        resolve({ success: false, error: `Failed to fetch ApiLinks.xml: ${err.message}` })
+      })
+    } catch (error) {
+      resolve({ success: false, error: `Failed to install Modding API: ${error instanceof Error ? error.message : 'Unknown error'}` })
     }
-
-    // Copy all files from ModdingApiWin to Managed folder
-    const files = fs.readdirSync(moddingApiPath)
-    for (const file of files) {
-      if (file === 'README.md') continue // Skip README
-
-      const sourcePath = path.join(moddingApiPath, file)
-      const destPath = path.join(managedPath, file)
-
-      fs.copyFileSync(sourcePath, destPath)
-    }
-
-    return { success: true }
-  } catch (error) {
-    return {
-      success: false,
-      error: `Failed to install Modding API: ${error instanceof Error ? error.message : 'Unknown error'}`
-    }
-  }
+  })
 }
 
 interface InstalledMod {
@@ -810,36 +935,155 @@ ipcMain.handle('batch-uninstall-mods', (_event, modNames: string[]) => {
   return { success: true, results }
 })
 
-ipcMain.handle('launch-game', () => {
+ipcMain.handle('install-modding-api', async () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  console.log('[HKL] Manually installing Modding API...')
+  const result = await installModdingApi(gameDirectory)
+  console.log('[HKL] Modding API installation result:', result)
+  return result
+})
+
+ipcMain.handle('get-vanilla-mode', () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return false
+
+  // Detect current mode by checking which backup exists
+  const managedPath = getManagedPath(gameDirectory)
+  const moddedBackup = path.join(managedPath, 'Assembly-CSharp.dll.m')
+  const vanillaBackup = path.join(managedPath, 'Assembly-CSharp.dll.v')
+
+  // If .m exists, we're in vanilla mode (modded is backed up)
+  // If .v exists, we're in modded mode (vanilla is backed up)
+  if (fs.existsSync(moddedBackup)) {
+    return true // Vanilla mode
+  } else if (fs.existsSync(vanillaBackup)) {
+    return false // Modded mode
+  }
+
+  // Default to modded mode
+  return store.get('vanillaMode', false)
+})
+
+ipcMain.handle('set-vanilla-mode', (_event, enabled: boolean) => {
   const gameDirectory = store.get('gameDirectory', '') as string
   if (!gameDirectory) return { success: false, error: 'No game directory set' }
 
   try {
-    // Check if Modding API is installed, if not install it
-    if (!isModdingApiInstalled(gameDirectory)) {
-      const installResult = installModdingApi(gameDirectory)
-      if (!installResult.success) {
-        return { success: false, error: installResult.error }
+    const managedPath = getManagedPath(gameDirectory)
+    const currentDll = path.join(managedPath, 'Assembly-CSharp.dll')
+    const moddedBackup = path.join(managedPath, 'Assembly-CSharp.dll.m')
+    const vanillaBackup = path.join(managedPath, 'Assembly-CSharp.dll.v')
+
+    if (enabled) {
+      // Switch to vanilla mode:
+      // 1. Rename current .dll to .m (backup modded)
+      // 2. Rename .v to .dll (activate vanilla)
+      if (fs.existsSync(currentDll)) {
+        fs.renameSync(currentDll, moddedBackup)
+      }
+      if (fs.existsSync(vanillaBackup)) {
+        fs.renameSync(vanillaBackup, currentDll)
+      }
+    } else {
+      // Switch to modded mode:
+      // 1. Rename current .dll to .v (backup vanilla)
+      // 2. Rename .m to .dll (activate modded)
+      if (fs.existsSync(currentDll)) {
+        fs.renameSync(currentDll, vanillaBackup)
+      }
+      if (fs.existsSync(moddedBackup)) {
+        fs.renameSync(moddedBackup, currentDll)
       }
     }
 
-    // Load enabled mods into Mods folder
-    const loadModsResult = loadEnabledMods(gameDirectory)
-    if (!loadModsResult.success) {
-      return { success: false, error: loadModsResult.error }
+    store.set('vanillaMode', enabled)
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to toggle vanilla mode: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }
+  }
+})
+
+ipcMain.handle('launch-game', async () => {
+  const gameDirectory = store.get('gameDirectory', '') as string
+  if (!gameDirectory) return { success: false, error: 'No game directory set' }
+
+  try {
+    const vanillaMode = store.get('vanillaMode', false) as boolean
+    const managedPath = getManagedPath(gameDirectory)
+    const currentDll = path.join(managedPath, 'Assembly-CSharp.dll')
+    const moddedBackup = path.join(managedPath, 'Assembly-CSharp.dll.m')
+    const vanillaBackup = path.join(managedPath, 'Assembly-CSharp.dll.v')
+
+    if (!vanillaMode) {
+      // Ensure we're in modded mode before launching
+      // Check if .m exists (vanilla is active), if so, switch to modded
+      if (fs.existsSync(moddedBackup) && !fs.existsSync(vanillaBackup)) {
+        // Currently in vanilla mode, switch to modded
+        if (fs.existsSync(currentDll)) {
+          fs.renameSync(currentDll, vanillaBackup)
+        }
+        fs.renameSync(moddedBackup, currentDll)
+      }
+
+      // Check if Modding API is installed, if not install it
+      const apiInstalled = isModdingApiInstalled(gameDirectory)
+      console.log('[HKL] Modding API installed:', apiInstalled)
+
+      if (!apiInstalled) {
+        console.log('[HKL] Installing Modding API...')
+        const installResult = await installModdingApi(gameDirectory)
+        console.log('[HKL] Install result:', installResult)
+        if (!installResult.success) {
+          return { success: false, error: installResult.error }
+        }
+      }
+
+      // Load enabled mods into Mods folder
+      const loadModsResult = loadEnabledMods(gameDirectory)
+      if (!loadModsResult.success) {
+        return { success: false, error: loadModsResult.error }
+      }
+    } else {
+      // Ensure we're in vanilla mode before launching
+      // Check if .v exists (modded is active), if so, switch to vanilla
+      if (fs.existsSync(vanillaBackup) && !fs.existsSync(moddedBackup)) {
+        // Currently in modded mode, switch to vanilla
+        if (fs.existsSync(currentDll)) {
+          fs.renameSync(currentDll, moddedBackup)
+        }
+        fs.renameSync(vanillaBackup, currentDll)
+      }
     }
 
-    // Launch the game
-    const exePath = path.join(gameDirectory, 'hollow_knight.exe')
-    if (!fs.existsSync(exePath)) {
-      return { success: false, error: 'hollow_knight.exe not found' }
+    // Launch the game via Steam protocol (Hollow Knight App ID: 367520)
+    // This avoids the "another instance running" error
+    const { shell } = require('electron')
+    const steamAppId = '367520'
+
+    try {
+      // Launch through Steam using the steam:// protocol
+      shell.openExternal(`steam://rungameid/${steamAppId}`)
+      return { success: true, message: 'Game launched successfully' }
+    } catch (steamError) {
+      // Fallback to direct launch if Steam protocol fails
+      console.log('Steam launch failed, trying direct launch:', steamError)
+
+      const exePath = path.join(gameDirectory, 'hollow_knight.exe')
+      if (!fs.existsSync(exePath)) {
+        return { success: false, error: 'hollow_knight.exe not found' }
+      }
+
+      // Launch without waiting
+      const { spawn } = require('child_process')
+      spawn(exePath, [], { detached: true, stdio: 'ignore', cwd: gameDirectory }).unref()
+
+      return { success: true, message: 'Game launched successfully' }
     }
-
-    // Launch without waiting
-    const { spawn } = require('child_process')
-    spawn(exePath, [], { detached: true, stdio: 'ignore', cwd: gameDirectory }).unref()
-
-    return { success: true, message: 'Game launched successfully' }
   } catch (error) {
     return {
       success: false,
@@ -1003,6 +1247,7 @@ function createWindow() {
       contextIsolation: false,
     },
   })
+  win.webContents.openDevTools()
 
   // Nuclear option: Force set icon after creation (Windows taskbar fix)
   if (process.platform === 'win32') {
