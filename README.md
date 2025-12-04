@@ -1,6 +1,8 @@
-# HKL - Hollow Knight Loader
+# HKL - Hollow Knight Loader  <img width="40px" src="https://github.com/xavierhampton/HKL/blob/main/public/icon.png" />
 
 A mod manager for Hollow Knight focused on user experience.
+
+<img src="https://github.com/xavierhampton/HKL/blob/main/public/demo.png" />
 
 ## Features
 
