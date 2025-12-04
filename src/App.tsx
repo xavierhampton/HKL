@@ -4,7 +4,7 @@ import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
 import { Input } from './components/ui/input'
 import { Button } from './components/ui/button'
-import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle, RefreshCw } from 'lucide-react'
+import { Search, Package, Boxes, Settings as SettingsIcon, Play, AlertCircle, RefreshCw, Palette } from 'lucide-react'
 import { parseModLinks } from './utils/modLinksParser'
 import { Toaster, toast } from 'sonner'
 import { CreatePackDialog } from './components/CreatePackDialog'
@@ -12,7 +12,7 @@ import { ImportPackDialog } from './components/ImportPackDialog'
 
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 
-type TabType = 'mods' | 'packs' | 'settings'
+type TabType = 'mods' | 'packs' | 'skins' | 'settings'
 type FilterType = 'all' | 'enabled' | 'installed'
 
 export interface Mod {
@@ -399,6 +399,17 @@ export default function App() {
                 Packs
               </button>
               <button
+                onClick={() => setActiveTab('skins')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  activeTab === 'skins'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                }`}
+              >
+                <Palette className="h-4 w-4" />
+                Skins
+              </button>
+              <button
                 onClick={() => setActiveTab('settings')}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                   activeTab === 'settings'
@@ -518,6 +529,13 @@ export default function App() {
           <div className="flex-1 overflow-auto">
             {activeTab === 'settings' ? (
               <Settings />
+            ) : activeTab === 'skins' ? (
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-2 p-3 rounded-md bg-muted/50 border border-border/40">
+                  <Palette className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">Skins feature coming soon...</span>
+                </div>
+              </div>
             ) : (
               <div className="p-4 space-y-3">
                 {!gameDirectory && (

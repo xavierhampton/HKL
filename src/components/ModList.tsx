@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 const ipcRenderer = (window as any).require?.('electron')?.ipcRenderer
 const shell = (window as any).require?.('electron')?.shell
 
-type TabType = 'mods' | 'packs'
+type TabType = 'mods' | 'packs' | 'skins'
 type FilterType = 'all' | 'enabled' | 'installed'
 
 export function ModList({
