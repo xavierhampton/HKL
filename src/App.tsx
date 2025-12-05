@@ -472,14 +472,20 @@ export default function App() {
                 )}
                 {activeTab === 'skins' && (
                   <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!gameDirectory}
-                      onClick={() => toast.info('Import Skins feature coming soon...')}
-                    >
-                      Import Skin(s)
-                    </Button>
+                    <div className="flex gap-1 bg-muted/30 rounded-lg p-0.5">
+                      {(['all', 'enabled', 'installed'] as const).map((f) => (
+                        <button
+                          key={f}
+                          disabled
+                          className="w-20 px-2.5 py-1 text-xs rounded text-muted-foreground opacity-50 cursor-not-allowed"
+                        >
+                          {f.charAt(0).toUpperCase() + f.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      0 / 0
+                    </span>
                   </div>
                 )}
                 <div className="flex gap-2">
@@ -524,6 +530,16 @@ export default function App() {
                         Disable All
                       </Button>
                     </>
+                  )}
+                  {activeTab === 'skins' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!gameDirectory}
+                      onClick={() => toast.info('Import Skins feature coming soon...')}
+                    >
+                      Import Skin(s)
+                    </Button>
                   )}
                 </div>
               </div>
