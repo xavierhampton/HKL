@@ -448,26 +448,29 @@ export default function App() {
           {activeTab !== 'settings' && (
             <header className="border-b border-border/40 p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-1 bg-muted/30 rounded-lg p-0.5">
-                    {(['all', 'enabled', 'installed'] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setFilter(f)}
-                        className={`w-20 px-2.5 py-1 text-xs rounded transition-colors ${
-                          filter === f
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {f.charAt(0).toUpperCase() + f.slice(1)}
-                      </button>
-                    ))}
+                {activeTab !== 'skins' && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1 bg-muted/30 rounded-lg p-0.5">
+                      {(['all', 'enabled', 'installed'] as const).map((f) => (
+                        <button
+                          key={f}
+                          onClick={() => setFilter(f)}
+                          className={`w-20 px-2.5 py-1 text-xs rounded transition-colors ${
+                            filter === f
+                              ? 'bg-accent text-accent-foreground'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {f.charAt(0).toUpperCase() + f.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {mods.filter(m => m.type === (activeTab === 'mods' ? 'mod' : 'modpack') && m.enabled).length} / {mods.filter(m => m.type === (activeTab === 'mods' ? 'mod' : 'modpack')).length}
+                    </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {mods.filter(m => m.type === (activeTab === 'mods' ? 'mod' : 'modpack') && m.enabled).length} / {mods.filter(m => m.type === (activeTab === 'mods' ? 'mod' : 'modpack')).length}
-                  </span>
-                </div>
+                )}
+                {activeTab === 'skins' && <div />}
                 <div className="flex gap-2">
                   {activeTab === 'packs' && (
                     <>
