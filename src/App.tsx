@@ -470,7 +470,18 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                {activeTab === 'skins' && <div />}
+                {activeTab === 'skins' && (
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!gameDirectory}
+                      onClick={() => toast.info('Import Skins feature coming soon...')}
+                    >
+                      Import Skin(s)
+                    </Button>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   {activeTab === 'packs' && (
                     <>
@@ -513,16 +524,6 @@ export default function App() {
                         Disable All
                       </Button>
                     </>
-                  )}
-                  {activeTab === 'skins' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!gameDirectory}
-                      onClick={() => toast.info('Import Skins feature coming soon...')}
-                    >
-                      Import Skin(s)
-                    </Button>
                   )}
                 </div>
               </div>
