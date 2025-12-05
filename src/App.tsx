@@ -511,6 +511,16 @@ export default function App() {
                       </Button>
                     </>
                   )}
+                  {activeTab === 'skins' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!gameDirectory}
+                      onClick={() => toast.info('Import Skins feature coming soon...')}
+                    >
+                      Import Skin(s)
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="relative">
